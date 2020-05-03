@@ -30,8 +30,9 @@ jobs:
     #  run: ./gradlew shadowJar
     
     - name: Update latest tag
-      uses: tvdias/github-tagger@v0.0.2
+      uses: richardsimko/update-tag@master
       with:
-        repo-token: ${{ secrets.GITHUB_TOKEN }}
-        tag: latest
+        tag_name: latest
+      env: 
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     
