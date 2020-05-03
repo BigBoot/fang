@@ -29,7 +29,7 @@ class Users : CommandGroupSpec("users", "Commands for managing users") {
                 channel().createEmbed { embed ->
                     embed.setTitle("Permissions of ${user.displayName}")
                     groups.forEach { group ->
-                        embed.addField(group.first, group.second.joinToString("\n"), false)
+                        embed.addField(group.first, group.second.joinToString("\n").ifBlank { "-" }, false)
                     }
                     if (groups.isEmpty()) {
                         embed.setDescription("User <@${user.id.asString()}> doesn't have any permissions")

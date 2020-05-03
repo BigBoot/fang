@@ -115,11 +115,18 @@ class PermissionManager(database: Database) {
     }
 
     fun getGroupsByUser(snowflake: Long): List<Pair<String, List<String>>> = transaction {
-        User.find { Users.snowflake eq snowflake }
+        (User.find { Users.snowflake eq snowflake }
             .firstOrNull()
             ?.groups
             ?.map { group -> Pair(group.name, group.permissions.map { it.permission }) }
             ?.toList()
-            ?: emptyList()
+            ?: emptyList())
+            .plusElement(Pair("default", Group
+                .find { Groups.name eq Config.DEFAULT_GROUP_NAME }
+                .first()
+                .permissions
+                .map { it.permission }
+                .toList()
+            ))
     }
 }
