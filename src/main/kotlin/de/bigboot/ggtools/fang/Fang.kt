@@ -204,7 +204,7 @@ class Fang(private val client: GatewayDiscordClient) {
             val players = matchManager.pop()
             val missingPlayers = ArrayList(players)
 
-            val endTime = System.currentTimeMillis() + 60000
+            val endTime = System.currentTimeMillis() + (Config.ACCEPT_TIMEOUT * 1000L)
 
             val pop = msg.channel.awaitSingle().createMessage {
                 it.setContent(players.joinToString(" ") { player -> "<@$player>" })

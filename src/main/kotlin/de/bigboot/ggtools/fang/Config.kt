@@ -104,5 +104,6 @@ object Config {
     val DEFAULT_GROUP_PERMISSIONS: List<String> by optional(listOf())
     val ADMIN_GROUP_NAME: String by optional("admin")
     val ADMIN_GROUP_PERMISSIONS: List<String> by optional(listOf("*"))
+    val ACCEPT_TIMEOUT: Int by optional(120)
 }
 
