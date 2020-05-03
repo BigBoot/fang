@@ -37,12 +37,12 @@ jobs:
     - name: GH Release
       uses: softprops/action-gh-release@v0.1.5
       with:
+        tag_name: latest
         name: latest
         prerelease: true
         files: "build/libs/*-all.jar"
       env: 
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        INPUT_TAG_NAME: latest
         
 
     
