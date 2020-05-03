@@ -27,6 +27,13 @@ jobs:
     - name: Build with Gradle
       run: ./gradlew shadowJar
 
+    - name: Update latest tag
+      uses: richardsimko/update-tag@master
+      with:
+        tag_name: latest
+      env: 
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
     - name: Create Release
       uses: ncipollo/release-action@v1.6.1
       with:
