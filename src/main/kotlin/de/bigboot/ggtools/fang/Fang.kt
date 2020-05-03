@@ -18,6 +18,7 @@ import kotlinx.coroutines.reactive.awaitSingle
 import kotlinx.coroutines.reactor.mono
 import org.jetbrains.exposed.sql.Database
 import reactor.core.publisher.Mono
+import java.lang.StringBuilder
 import java.util.*
 import kotlin.math.max
 
@@ -57,6 +58,19 @@ class Fang(private val client: GatewayDiscordClient) {
             }.awaitFirst()
         }
 
+
+        commands += Command.Invokable(
+            "commands",
+            "Show all available commands",
+            emptyArray()
+        ) {
+            channel().createEmbed { embed ->
+                embed.setTitle("Commands")
+                embed.setDescription("```\n${printCommandTree()}\n```")
+
+            }.awaitFirst()
+        }
+
         updateStatusTimer.schedule(object: TimerTask() {
             override fun run() {
                 updateStatus()
@@ -74,6 +88,43 @@ class Fang(private val client: GatewayDiscordClient) {
                     }
             }
             .subscribe()
+    }
+
+    private fun buildCommandTree(command: Command, tree: StringBuilder, prefix: String, last: Boolean): StringBuilder {
+        val branch = when (last) {
+            true -> "└── "
+            false -> "├── "
+        }
+
+        tree.appendln("$prefix$branch${command.name}")
+
+        if(command is Command.Group) {
+            command.commands.values.forEachIndexed { i, subcommand ->
+                val sublast = command.commands.size-1 == i
+
+                val subprefix = prefix + when {
+                    last -> "    "
+                    else -> "│   "
+                }
+                buildCommandTree(subcommand, tree, subprefix, sublast)
+            }
+
+            if(!last) {
+                tree.appendln("$prefix│   ")
+            }
+        }
+
+        return tree
+    }
+
+    private fun printCommandTree(): String {
+        val tree = StringBuilder()
+        commands.commands.values.forEachIndexed { i, subcommand ->
+            val last = commands.commands.size-1 == i
+            buildCommandTree(subcommand, tree, "", last)
+        }
+
+        return tree.toString()
     }
 
 

@@ -33,7 +33,7 @@ sealed class Command(val name: String, val description: String) {
         override val namespace get() = "${super.namespace}."
     }
 
-    private val chain: List<Command> get() {
+    val chain: List<Command> get() {
         val result = ArrayList<Command>()
 
         var cur: Command? = this
