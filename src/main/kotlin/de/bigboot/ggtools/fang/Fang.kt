@@ -2,12 +2,15 @@ package de.bigboot.ggtools.fang
 
 import de.bigboot.ggtools.fang.commands.Commands
 import de.bigboot.ggtools.fang.utils.parseArgs
+import de.bigboot.ggtools.fang.utils.print
 import discord4j.core.GatewayDiscordClient
 import discord4j.core.`object`.entity.channel.MessageChannel
 import discord4j.core.`object`.presence.Activity
 import discord4j.core.`object`.presence.Status
 import discord4j.core.`object`.reaction.ReactionEmoji
 import discord4j.core.event.domain.message.MessageCreateEvent
+import discord4j.core.event.domain.message.ReactionAddEvent
+import discord4j.core.retriever.EntityRetrievalStrategy
 import discord4j.discordjson.json.ActivityUpdateRequest
 import discord4j.discordjson.json.gateway.StatusUpdate
 import discord4j.rest.util.Snowflake
@@ -31,7 +34,7 @@ class Fang(private val client: GatewayDiscordClient) {
     )
     private val gcpManager = ServerManager(database)
     private val permissionManager = PermissionManager(database)
-    private val matchManager = MatchManager()
+    private val matchManager = MatchManager(database)
 
     private val updateStatusTimer = Timer(true)
 
@@ -81,6 +84,28 @@ class Fang(private val client: GatewayDiscordClient) {
             .filter { it.message.content.startsWith(Config.PREFIX) }
             .flatMap { event ->
                 handleCommandEvent(event)
+                    .onErrorResume { error ->
+                        // log and then discard the error to keep the sequence alive
+                        error.printStackTrace()
+                        Mono.empty()
+                    }
+            }
+            .subscribe()
+
+        client.eventDispatcher.on(ReactionAddEvent::class.java)
+            .filter { it.emoji == EMOJI_MATCH_FINISHED }
+            .filterWhen {
+                mono {
+                    val message = it.message.awaitSingle()
+                    val userId = Snowflake.of(message.userData.id())
+                    val botId = client.selfId.awaitSingle()
+                    userId == botId && message.getReactors(EMOJI_MATCH_FINISHED)
+                        .any { it.id == botId }
+                        .awaitSingle()
+                }
+            }
+            .flatMap { event ->
+                handleReactMatchFinished(event)
                     .onErrorResume { error ->
                         // log and then discard the error to keep the sequence alive
                         error.printStackTrace()
@@ -210,21 +235,21 @@ class Fang(private val client: GatewayDiscordClient) {
                 it.setContent(players.joinToString(" ") { player -> "<@$player>" })
             }.awaitSingle()
 
-            pop.addReaction(ReactionEmoji.unicode("\uD83D\uDC4D")).awaitFirstOrNull()
+            pop.addReaction(EMOJI_ACCEPT).awaitFirstOrNull()
 
             while (true) {
                 if(System.currentTimeMillis() >= endTime || missingPlayers.isEmpty()) {
                     break
                 }
 
-                pop.getReactors(ReactionEmoji.unicode("\uD83D\uDC4D")).collectList().awaitSingle().forEach {
-                    missingPlayers.remove(it.id.asString())
+                pop.getReactors(EMOJI_ACCEPT).collectList().awaitSingle().forEach {
+                    missingPlayers.remove(it.id.asLong())
                 }
 
                 pop.edit {
                     it.setEmbed { embed ->
                         embed.setTitle("Match found!")
-                        embed.setDescription("A match is ready, please react with a \uD83D\uDC4D to accept the match. You have 60 seconds to accept, otherwise you will be removed from the queue and everybody else will be put back into the queue.")
+                        embed.setDescription("A match is ready, please react with a ${EMOJI_ACCEPT.print()} to accept the match. You have 60 seconds to accept, otherwise you will be removed from the queue and everybody else will be put back into the queue.")
                         embed.addField("Time remaining: ", "${max(0, (endTime-System.currentTimeMillis())/1000)}", true)
                         if(missingPlayers.isNotEmpty()) {
                             embed.addField("Missing players: ", missingPlayers.joinToString(" ") { player -> "<@$player>" }, true)
@@ -239,10 +264,12 @@ class Fang(private val client: GatewayDiscordClient) {
                 pop.edit {
                     it.setEmbed { embed ->
                         embed.setTitle("Match ready!")
-                        embed.setDescription("Everybody get ready, you've got a match.\nHave fun!")
+                        embed.setDescription("Everybody get ready, you've got a match.\nHave fun!\n\nPlease react with a ${EMOJI_MATCH_FINISHED.print()} after the match is finished to get added back to the queue.")
                         embed.addField("Players: ", players.joinToString(" ") { "<@$it>" }, true)
                     }
                 }.awaitSingle()
+
+                pop.addReaction(EMOJI_MATCH_FINISHED).awaitFirstOrNull()
             }
             else {
                 pop.edit {
@@ -258,6 +285,29 @@ class Fang(private val client: GatewayDiscordClient) {
                     matchManager.join(player)
                 }
             }
+        }
+    }
+
+    private fun handleReactMatchFinished(event: ReactionAddEvent) = mono {
+        val message = event.message.awaitSingle()
+
+        val players = message.content.split(" ")
+            .map {it.substringAfter("<@").substringBefore(">") }
+            .mapNotNull { it.toLongOrNull() }
+        
+        if (players.contains(event.userId.asLong())) {
+            for (player in players) {
+                matchManager.join(player)
+            }
+
+            message.edit {
+                it.setEmbed { embed ->
+                    embed.setTitle("Match finished!")
+                    embed.setDescription("Players have rejoined the queue. Let's have another one!")
+                }
+            }.awaitSingle()
+
+            message.removeSelfReaction(EMOJI_MATCH_FINISHED).awaitSingle()
         }
     }
 
@@ -325,5 +375,11 @@ class Fang(private val client: GatewayDiscordClient) {
             "Vodens tail",
             "Pakkos toys"
         )
+
+        val EMOJI_ACCEPT = ReactionEmoji.custom(Snowflake.of("630950806450995201"), "ReadyScrollEmote", false)
+        val EMOJI_MATCH_FINISHED = ReactionEmoji.custom(Snowflake.of("632026748946481162"), "GG", false)
+
+//        val EMOJI_ACCEPT = ReactionEmoji.unicode("\uD83D\uDC4D")
+//        val EMOJI_MATCH_FINISHED = ReactionEmoji.unicode("\uD83C\uDFC1")
     }
 }

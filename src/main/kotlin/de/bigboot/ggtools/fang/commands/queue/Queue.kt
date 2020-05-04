@@ -2,6 +2,7 @@ package de.bigboot.ggtools.fang.commands.queue
 
 import de.bigboot.ggtools.fang.CommandGroupBuilder
 import de.bigboot.ggtools.fang.CommandGroupSpec
+import discord4j.rest.util.Snowflake
 import kotlinx.coroutines.reactive.awaitSingle
 
 class Queue : CommandGroupSpec("queue", "Commands for matchmaking") {
@@ -21,7 +22,7 @@ class Queue : CommandGroupSpec("queue", "Commands for matchmaking") {
 
         command("join", "join the queue") {
             onCall {
-                if(matchManager.join(message.userData.id())) {
+                if(matchManager.join(Snowflake.of(message.userData.id()).asLong())) {
                     channel().createEmbed { embed ->
                         embed.setDescription("<@${message.userData.id()}> joined the queue.")
                     }.awaitSingle()
@@ -31,7 +32,7 @@ class Queue : CommandGroupSpec("queue", "Commands for matchmaking") {
 
         command("leave", "leave the queue") {
             onCall {
-                if(matchManager.leave(message.userData.id())) {
+                if(matchManager.leave(Snowflake.of(message.userData.id()).asLong())) {
                     channel().createEmbed { embed ->
                         embed.setDescription("<@${message.userData.id()}> left the queue.")
                     }.awaitSingle()
