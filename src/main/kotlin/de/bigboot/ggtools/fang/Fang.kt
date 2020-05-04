@@ -8,9 +8,9 @@ import discord4j.core.`object`.entity.channel.MessageChannel
 import discord4j.core.`object`.presence.Activity
 import discord4j.core.`object`.presence.Status
 import discord4j.core.`object`.reaction.ReactionEmoji
+import discord4j.core.event.domain.VoiceStateUpdateEvent
 import discord4j.core.event.domain.message.MessageCreateEvent
 import discord4j.core.event.domain.message.ReactionAddEvent
-import discord4j.core.retriever.EntityRetrievalStrategy
 import discord4j.discordjson.json.ActivityUpdateRequest
 import discord4j.discordjson.json.gateway.StatusUpdate
 import discord4j.rest.util.Snowflake
@@ -84,6 +84,22 @@ class Fang(private val client: GatewayDiscordClient) {
             .filter { it.message.content.startsWith(Config.PREFIX) }
             .flatMap { event ->
                 handleCommandEvent(event)
+                    .onErrorResume { error ->
+                        // log and then discard the error to keep the sequence alive
+                        error.printStackTrace()
+                        Mono.empty()
+                    }
+            }
+            .subscribe()
+
+        client.eventDispatcher.on(VoiceStateUpdateEvent::class.java)
+            .filterWhen {
+                mono {
+                    it.current.channel.awaitFirstOrNull()?.name == "Match Hub"
+                }
+            }
+            .flatMap { event ->
+                handleMatchHubJoined(event)
                     .onErrorResume { error ->
                         // log and then discard the error to keep the sequence alive
                         error.printStackTrace()
@@ -311,6 +327,27 @@ class Fang(private val client: GatewayDiscordClient) {
         }
     }
 
+    private fun handleMatchHubJoined(event: VoiceStateUpdateEvent) = mono {
+        val userId = event.current.userId.asLong()
+
+        if(!matchManager.isPlayerQueued(userId)) {
+            val msgChannel = event
+                .current
+                .guild
+                .awaitSingle()
+                .channels
+                .filter { it.name == "match-hub" }
+                .awaitFirstOrNull()
+
+
+            if (msgChannel is MessageChannel) {
+                msgChannel.createMessage {
+                    it.setContent("Hey <@${userId}>. I've noticed you joined the Match Hub voice channel, please remember to also join the queue with \"~queue join\"")
+                }.awaitSingle()
+            }
+        }
+    }
+
     private fun formatArg(arg: Argument) = if (arg.optional) { "[${arg.name}]" } else { "<${arg.name}>" }
 
     private fun formatCommandHelp(name: String, command: Command): String {
@@ -376,6 +413,7 @@ class Fang(private val client: GatewayDiscordClient) {
             "Pakkos toys"
         )
 
+        val EMOJI_JOIN_QUEUE = ReactionEmoji.unicode("\uD83D\uDC4D")
         val EMOJI_ACCEPT = ReactionEmoji.custom(Snowflake.of("630950806450995201"), "ReadyScrollEmote", false)
         val EMOJI_MATCH_FINISHED = ReactionEmoji.custom(Snowflake.of("632026748946481162"), "GG", false)
 

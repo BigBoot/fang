@@ -63,4 +63,8 @@ class MatchManager(database: Database) {
             .find { Players.inMatch eq false }
             .count()
     }
+
+    fun isPlayerQueued(snowflake: Long) = transaction {
+        !Player.find { Players.snowflake eq snowflake }.empty()
+    }
 }
