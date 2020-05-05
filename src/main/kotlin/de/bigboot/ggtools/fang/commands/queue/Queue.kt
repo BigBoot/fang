@@ -3,6 +3,7 @@ package de.bigboot.ggtools.fang.commands.queue
 import de.bigboot.ggtools.fang.CommandGroupBuilder
 import de.bigboot.ggtools.fang.CommandGroupSpec
 import discord4j.rest.util.Snowflake
+import kotlinx.coroutines.reactive.awaitFirstOrNull
 import kotlinx.coroutines.reactive.awaitSingle
 
 class Queue : CommandGroupSpec("queue", "Commands for matchmaking") {
@@ -43,6 +44,29 @@ class Queue : CommandGroupSpec("queue", "Commands for matchmaking") {
         command("pop", "Force the queue to pop even of there aren't enough players") {
             onCall {
                 matchManager.force()
+            }
+        }
+
+        command("kick", "Kick a player from the queue") {
+            arg("player", "the player to kick")
+
+            onCall {
+                val user = guild().members
+                    .filter { it.displayName == args["player"] }
+                    .awaitFirstOrNull()
+
+                if (user == null) {
+                    channel().createEmbed { embed ->
+                        embed.setDescription("User ${args["player"]} not found")
+                    }.awaitSingle()
+                    return@onCall
+                }
+
+                matchManager.leave(user.id.asLong())
+
+                channel().createEmbed { embed ->
+                    embed.setDescription("<@${message.userData.id()}> removed from the queue.")
+                }.awaitSingle()
             }
         }
     }
