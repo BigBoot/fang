@@ -95,7 +95,7 @@ class Fang(private val client: GatewayDiscordClient) {
             .subscribe()
 
         client.eventDispatcher.on(VoiceStateUpdateEvent::class.java)
-            .filter { it.old.isEmpty }
+            .filter { !it.old.isPresent }
             .filterWhen {
                 mono {
                     it.current.channel.awaitFirstOrNull()?.name == "Match Hub"
