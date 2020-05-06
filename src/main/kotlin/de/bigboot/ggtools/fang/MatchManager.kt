@@ -7,6 +7,7 @@ import org.jetbrains.exposed.sql.transactions.transaction
 
 class MatchManager(database: Database) {
     private var force = false
+    private var request: Request? = null
 
     init {
         transaction(database) {
@@ -32,24 +33,36 @@ class MatchManager(database: Database) {
         }
     }
 
-    fun canPop(): Boolean = force || getNumPlayers() >= 10
+    fun canPop(): Boolean = force || request != null || getNumPlayers() >= 10
 
     fun force() {
         force = true
     }
 
-    fun pop(): Collection<Long> {
+    fun request(player: Long, minPlayers: Int) {
+        request = Request(player, minPlayers)
+    }
+
+    fun pop(): Pop {
+        val pop = Pop(
+            forced = force,
+            request = request,
+            players = transaction {
+                Player
+                    .find { Players.inMatch eq false }
+                    .asSequence()
+                    .sortedBy { it.joined }
+                    .take(10)
+                    .onEach { it.inMatch = true }
+                    .map { it.snowflake }
+                    .toList()
+            }
+        )
+
         force = false
-        return transaction {
-            Player
-                .find { Players.inMatch eq false }
-                .asSequence()
-                .sortedBy { it.joined }
-                .take(10)
-                .onEach { it.inMatch = true }
-                .map { it.snowflake }
-                .toList()
-        }
+        request = null
+
+        return pop
     }
 
     fun getPlayers(): Collection<Long> = transaction {
@@ -67,4 +80,15 @@ class MatchManager(database: Database) {
     fun isPlayerQueued(snowflake: Long) = transaction {
         !Player.find { Players.snowflake eq snowflake }.empty()
     }
+
+    data class Pop(
+        val players: Collection<Long>,
+        val forced: Boolean,
+        val request: Request?
+    )
+
+    data class Request(
+        val player: Long,
+        val minPlayers: Int
+    )
 }

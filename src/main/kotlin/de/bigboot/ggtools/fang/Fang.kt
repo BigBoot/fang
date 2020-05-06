@@ -8,6 +8,7 @@ import discord4j.core.`object`.entity.channel.MessageChannel
 import discord4j.core.`object`.presence.Activity
 import discord4j.core.`object`.presence.Status
 import discord4j.core.`object`.reaction.ReactionEmoji
+import discord4j.core.event.domain.PresenceUpdateEvent
 import discord4j.core.event.domain.VoiceStateUpdateEvent
 import discord4j.core.event.domain.message.MessageCreateEvent
 import discord4j.core.event.domain.message.ReactionAddEvent
@@ -23,6 +24,7 @@ import org.jetbrains.exposed.sql.Database
 import reactor.core.publisher.Mono
 import java.lang.StringBuilder
 import java.util.*
+import kotlin.collections.HashSet
 import kotlin.math.max
 
 class Fang(private val client: GatewayDiscordClient) {
@@ -74,7 +76,7 @@ class Fang(private val client: GatewayDiscordClient) {
             }.awaitFirst()
         }
 
-        updateStatusTimer.schedule(object: TimerTask() {
+        updateStatusTimer.schedule(object : TimerTask() {
             override fun run() {
                 updateStatus()
             }
@@ -130,6 +132,11 @@ class Fang(private val client: GatewayDiscordClient) {
                     }
             }
             .subscribe()
+
+        client.eventDispatcher.on(PresenceUpdateEvent::class.java)
+            .filter { it.current.status == Status.OFFLINE && matchManager.isPlayerQueued(it.userId.asLong()) }
+            .doOnNext { matchManager.leave(it.userId.asLong()) }
+            .subscribe()
     }
 
     private fun buildCommandTree(command: Command, tree: StringBuilder, prefix: String, last: Boolean): StringBuilder {
@@ -140,9 +147,9 @@ class Fang(private val client: GatewayDiscordClient) {
 
         tree.appendln("$prefix$branch${command.name}")
 
-        if(command is Command.Group) {
+        if (command is Command.Group) {
             command.commands.values.forEachIndexed { i, subcommand ->
-                val sublast = command.commands.size-1 == i
+                val sublast = command.commands.size - 1 == i
 
                 val subprefix = prefix + when {
                     last -> "    "
@@ -151,7 +158,7 @@ class Fang(private val client: GatewayDiscordClient) {
                 buildCommandTree(subcommand, tree, subprefix, sublast)
             }
 
-            if(!last) {
+            if (!last) {
                 tree.appendln("$prefix│   ")
             }
         }
@@ -162,7 +169,7 @@ class Fang(private val client: GatewayDiscordClient) {
     private fun printCommandTree(): String {
         val tree = StringBuilder()
         commands.commands.values.forEachIndexed { i, subcommand ->
-            val last = commands.commands.size-1 == i
+            val last = commands.commands.size - 1 == i
             buildCommandTree(subcommand, tree, "", last)
         }
 
@@ -178,12 +185,12 @@ class Fang(private val client: GatewayDiscordClient) {
         val sudo = msg.content.startsWith("${Config.PREFIX}sudo")
                 && client.applicationInfo.awaitSingle().ownerId == Snowflake.of(msg.userData.id())
 
-        if(sudo && args.hasNext()) {
+        if (sudo && args.hasNext()) {
             args.next()
         }
 
         var command: Command? = commands
-        while(args.hasNext() && command is Command.Group) {
+        while (args.hasNext() && command is Command.Group) {
             command = command.commands[args.next()]
         }
 
@@ -216,7 +223,7 @@ class Fang(private val client: GatewayDiscordClient) {
             return@mono
         }
 
-        when(command) {
+        when (command) {
             is Command.Invokable -> {
                 val argRange = command.args.filter { !it.optional }.size..command.args.size
                 val commandArgs = args.asSequence().toList()
@@ -242,76 +249,128 @@ class Fang(private val client: GatewayDiscordClient) {
             }
         }
 
-        if(matchManager.canPop()) {
-            val players = matchManager.pop()
-            val missingPlayers = ArrayList(players)
+        if (matchManager.canPop()) {
+            handleQueuePop(msg.channel.awaitSingle())
+        }
+    }
 
-            val endTime = System.currentTimeMillis() + (Config.ACCEPT_TIMEOUT * 1000L)
+    private suspend fun handleQueuePop(channel: MessageChannel) {
+        val pop = matchManager.pop()
+        val players = pop.players
+        val missing = HashSet(players)
+        val accepted = HashSet<Long>()
+        val denied = HashSet<Long>()
+        val canDeny = pop.request != null
+        val requiredPlayers = pop.request?.minPlayers ?: 10
 
-            val pop = msg.channel.awaitSingle().createMessage {
-                it.setContent(players.joinToString(" ") { player -> "<@$player>" })
+        val endTime = System.currentTimeMillis() + (Config.ACCEPT_TIMEOUT * 1000L)
+
+        val message = channel.createMessage {
+            it.setContent(players.joinToString(" ") { player -> "<@$player>" })
+        }.awaitSingle()
+
+        message.addReaction(EMOJI_ACCEPT).awaitFirstOrNull()
+
+        if(canDeny) {
+            message.addReaction(EMOJI_DENY).awaitFirstOrNull()
+        }
+
+        val content = when {
+            pop.request != null -> "A ${pop.request.minPlayers} player match has been requested by <@${pop.request.player}>." +
+                    "Please react with a ${EMOJI_ACCEPT.print()} to accept the match. If you want to deny the match please react with a ${EMOJI_DENY.print()}. " +
+                    "You have ${Config.ACCEPT_TIMEOUT} seconds to accept or deny, otherwise you will be removed from the queue."
+
+            else -> "A match is ready, please react with a ${EMOJI_ACCEPT.print()}} to accept the match. " +
+                    "You have ${Config.ACCEPT_TIMEOUT} seconds to accept, otherwise you will be removed from the queue."
+        }
+
+
+
+        while (true) {
+            message.getReactors(EMOJI_ACCEPT)
+                .filter { missing.contains(it.id.asLong()) }
+                .collectList()
+                .awaitSingle()
+                .onEach { accepted.add(it.id.asLong()) }
+                .onEach { missing.remove(it.id.asLong()) }
+
+            message.getReactors(EMOJI_DENY)
+                .filter { missing.contains(it.id.asLong()) }
+                .collectList()
+                .awaitSingle()
+                .onEach { denied.add(it.id.asLong()) }
+                .onEach { missing.remove(it.id.asLong()) }
+
+            if (System.currentTimeMillis() >= endTime || accepted.count() >= requiredPlayers || missing.isEmpty()) {
+                break
+            }
+
+            message.edit {
+                it.setEmbed { embed ->
+                    embed.setTitle("Match found!")
+                    embed.setDescription(content)
+                    embed.addField("Time remaining: ", "${max(0, (endTime - System.currentTimeMillis()) / 1000)}", true)
+                    if (missing.isNotEmpty()) {
+                        embed.addField(
+                            "Missing players: ",
+                            missing.joinToString(" ") { player -> "<@$player>" },
+                            true
+                        )
+                    }
+                }
             }.awaitSingle()
 
-            pop.addReaction(EMOJI_ACCEPT).awaitFirstOrNull()
+            delay(1000)
+        }
 
-            while (true) {
-                if(System.currentTimeMillis() >= endTime || missingPlayers.isEmpty()) {
-                    break
+        if (accepted.count() >= requiredPlayers) {
+            message.edit {
+                it.setEmbed { embed ->
+                    embed.setTitle("Match ready!")
+                    embed.setDescription("Everybody get ready, you've got a match.\nHave fun!\n\nPlease react with a ${EMOJI_MATCH_FINISHED.print()} after the match is finished to get added back to the queue.")
+                    embed.addField("Players", players.joinToString(" ") { "<@$it>" }, true)
                 }
+            }.awaitSingle()
 
-                pop.getReactors(EMOJI_ACCEPT).collectList().awaitSingle().forEach {
-                    missingPlayers.remove(it.id.asLong())
+            message.addReaction(EMOJI_MATCH_FINISHED).awaitFirstOrNull()
+        } else {
+            message.edit {
+                it.setEmbed { embed ->
+                    embed.setTitle("Match Cancelled!")
+                    embed.setDescription("Not enough players accepted the match")
                 }
+            }.awaitSingle()
 
-                pop.edit {
-                    it.setEmbed { embed ->
-                        embed.setTitle("Match found!")
-                        embed.setDescription("A match is ready, please react with a ${EMOJI_ACCEPT.print()} to accept the match. You have 60 seconds to accept, otherwise you will be removed from the queue and everybody else will be put back into the queue.")
-                        embed.addField("Time remaining: ", "${max(0, (endTime-System.currentTimeMillis())/1000)}", true)
-                        if(missingPlayers.isNotEmpty()) {
-                            embed.addField("Missing players: ", missingPlayers.joinToString(" ") { player -> "<@$player>" }, true)
-                        }
-                    }
-                }.awaitSingle()
-
-                delay(1000)
+            for (player in accepted) {
+                matchManager.join(player)
             }
+        }
 
-            if (missingPlayers.isEmpty()) {
-                pop.edit {
-                    it.setEmbed { embed ->
-                        embed.setTitle("Match ready!")
-                        embed.setDescription("Everybody get ready, you've got a match.\nHave fun!\n\nPlease react with a ${EMOJI_MATCH_FINISHED.print()} after the match is finished to get added back to the queue.")
-                        embed.addField("Players: ", players.joinToString(" ") { "<@$it>" }, true)
-                    }
-                }.awaitSingle()
+        for (player in denied) {
+            matchManager.join(player)
+        }
 
-                pop.addReaction(EMOJI_MATCH_FINISHED).awaitFirstOrNull()
-            }
-            else {
-                pop.edit {
-                    it.setEmbed { embed ->
-                        embed.setTitle("Match Cancelled!")
-                        embed.setDescription("Not all players accepted the match")
-                    }
-                }.awaitSingle()
-
-                pop.removeAllReactions()
-
-                for(player in players - missingPlayers) {
-                    matchManager.join(player)
-                }
-            }
+        for (player in missing) {
+            matchManager.leave(player)
         }
     }
 
     private fun handleReactMatchFinished(event: ReactionAddEvent) = mono {
         val message = event.message.awaitSingle()
 
-        val players = message.content.split(" ")
-            .map {it.substringAfter("<@").substringBefore(">") }
-            .mapNotNull { it.toLongOrNull() }
-        
+        val players = message
+            .embeds
+            .mapNotNull { embed ->
+                embed
+                    .fields
+                    .find { it.name == "Players" }
+                    ?.value
+                    ?.split(" ")
+                    ?.map { it.substringAfter("<@").substringBefore(">") }
+                    ?.mapNotNull { it.toLongOrNull() }
+            }
+            .flatten()
+
         if (players.contains(event.userId.asLong())) {
             for (player in players) {
                 matchManager.join(player)
@@ -331,7 +390,7 @@ class Fang(private val client: GatewayDiscordClient) {
     private fun handleMatchHubJoined(event: VoiceStateUpdateEvent) = mono {
         val userId = event.current.userId.asLong()
 
-        if(!matchManager.isPlayerQueued(userId)) {
+        if (!matchManager.isPlayerQueued(userId)) {
             val msgChannel = event
                 .current
                 .guild
@@ -349,7 +408,11 @@ class Fang(private val client: GatewayDiscordClient) {
         }
     }
 
-    private fun formatArg(arg: Argument) = if (arg.optional) { "[${arg.name}]" } else { "<${arg.name}>" }
+    private fun formatArg(arg: Argument) = if (arg.optional) {
+        "[${arg.name}]"
+    } else {
+        "<${arg.name}>"
+    }
 
     private fun formatCommandHelp(name: String, command: Command): String {
         return when (command) {
@@ -374,7 +437,12 @@ class Fang(private val client: GatewayDiscordClient) {
                 is Command.Group -> {
                     embed.addField(
                         "subcommands",
-                        command.commands.values.joinToString("\n\n") { "${formatCommandHelp(it.name, it)}\n${it.description}" },
+                        command.commands.values.joinToString("\n\n") {
+                            "${formatCommandHelp(
+                                it.name,
+                                it
+                            )}\n${it.description}"
+                        },
                         false
                     )
                 }
@@ -387,19 +455,21 @@ class Fang(private val client: GatewayDiscordClient) {
 
         val status = when {
             playersInQueue > 0 -> "at ${matchManager.getNumPlayers()} players in queue"
-            else -> "at ${LOOKING_AT[((System.currentTimeMillis() / (60 * 1000) ) % LOOKING_AT.size).toInt()]}"
+            else -> "at ${LOOKING_AT[((System.currentTimeMillis() / (60 * 1000)) % LOOKING_AT.size).toInt()]}"
         }
 
-        client.updatePresence(StatusUpdate.builder()
-            .status(Status.ONLINE.value)
-            .game(ActivityUpdateRequest.builder()
-                .name(status)
-                .type(Activity.Type.WATCHING.value)
+        client.updatePresence(
+            StatusUpdate.builder()
+                .status(Status.ONLINE.value)
+                .game(
+                    ActivityUpdateRequest.builder()
+                        .name(status)
+                        .type(Activity.Type.WATCHING.value)
+                        .build()
+                )
+                .afk(false)
+                .since(Optional.empty())
                 .build()
-            )
-            .afk(false)
-            .since(Optional.empty())
-            .build()
         ).block()
     }
 
@@ -414,8 +484,8 @@ class Fang(private val client: GatewayDiscordClient) {
             "Pakkos toys"
         )
 
-        val EMOJI_JOIN_QUEUE = ReactionEmoji.unicode("\uD83D\uDC4D")
         val EMOJI_ACCEPT = ReactionEmoji.custom(Snowflake.of("630950806450995201"), "ReadyScrollEmote", true)
+        val EMOJI_DENY = ReactionEmoji.unicode("\uD83D\uDC4E")
         val EMOJI_MATCH_FINISHED = ReactionEmoji.custom(Snowflake.of("632026748946481162"), "GG", false)
 
 //        val EMOJI_ACCEPT = ReactionEmoji.unicode("\uD83D\uDC4D")

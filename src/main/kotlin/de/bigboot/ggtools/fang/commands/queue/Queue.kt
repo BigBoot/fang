@@ -69,5 +69,22 @@ class Queue : CommandGroupSpec("queue", "Commands for matchmaking") {
                 }.awaitSingle()
             }
         }
+
+        command("request", "Request a match with less then 10 players") {
+            arg("players", "the number of players")
+
+            onCall {
+                val players = args["players"].toIntOrNull()
+
+                if (players == null) {
+                    channel().createEmbed { embed ->
+                        embed.setDescription("Sorry, I didn't understand that.")
+                    }.awaitSingle()
+                    return@onCall
+                }
+
+                matchManager.request(Snowflake.of(message.userData.id()).asLong(), players)
+            }
+        }
     }
 }
