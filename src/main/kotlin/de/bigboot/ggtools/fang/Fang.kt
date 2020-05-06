@@ -93,6 +93,7 @@ class Fang(private val client: GatewayDiscordClient) {
             .subscribe()
 
         client.eventDispatcher.on(VoiceStateUpdateEvent::class.java)
+            .filter { it.old.isEmpty }
             .filterWhen {
                 mono {
                     it.current.channel.awaitFirstOrNull()?.name == "Match Hub"
@@ -342,7 +343,7 @@ class Fang(private val client: GatewayDiscordClient) {
 
             if (msgChannel is MessageChannel) {
                 msgChannel.createMessage {
-                    it.setContent("Hey <@${userId}>. I've noticed you joined the Match Hub voice channel, please remember to also join the queue with \"~queue join\"")
+                    it.setContent("Hey <@${userId}>. I've noticed you joined the Match Hub voice channel, please remember to also join the queue with `~queue join`")
                 }.awaitSingle()
             }
         }
@@ -414,7 +415,7 @@ class Fang(private val client: GatewayDiscordClient) {
         )
 
         val EMOJI_JOIN_QUEUE = ReactionEmoji.unicode("\uD83D\uDC4D")
-        val EMOJI_ACCEPT = ReactionEmoji.custom(Snowflake.of("630950806450995201"), "ReadyScrollEmote", false)
+        val EMOJI_ACCEPT = ReactionEmoji.custom(Snowflake.of("630950806450995201"), "ReadyScrollEmote", true)
         val EMOJI_MATCH_FINISHED = ReactionEmoji.custom(Snowflake.of("632026748946481162"), "GG", false)
 
 //        val EMOJI_ACCEPT = ReactionEmoji.unicode("\uD83D\uDC4D")
