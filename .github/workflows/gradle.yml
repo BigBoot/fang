@@ -44,5 +44,15 @@ jobs:
       env: 
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         
+    - name: Deploy
+      uses: alinz/ssh-scp-action@v0.1.1
+      with:
+        host: ${{ secrets.DEPLOY_SSH_HOST }}
+        user: ${{ secrets.DEPLOY_SSH_USER }}
+        key: ${{ secrets.DEPLOY_SSH_KEY }}
+        ssh_before: rm ${{ secrets.DEPLOY_SSH_PATH }}/*.jar
+        scp: "\"*\" ${{ secrets.DEPLOY_SSH_USER }}@${{ secrets.DEPLOY_SSH_HOST }}:${{ secrets.DEPLOY_SSH_PATH }}/"
+        ssh_after: supervisorctl restart fang
+        
 
     
