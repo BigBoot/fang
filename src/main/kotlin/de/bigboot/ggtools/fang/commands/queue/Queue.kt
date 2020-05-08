@@ -65,7 +65,7 @@ class Queue : CommandGroupSpec("queue", "Commands for matchmaking") {
                 matchManager.leave(user.id.asLong())
 
                 channel().createEmbed { embed ->
-                    embed.setDescription("<@${message.userData.id()}> removed from the queue.")
+                    embed.setDescription("<@${user.id.asString()}> removed from the queue.")
                 }.awaitSingle()
             }
         }
