@@ -51,7 +51,7 @@ jobs:
         user: ${{ secrets.DEPLOY_SSH_USER }}
         key: ${{ secrets.DEPLOY_SSH_KEY }}
         ssh_before: rm ${{ secrets.DEPLOY_SSH_PATH }}/*.jar
-        scp: "\"*\" ${{ secrets.DEPLOY_SSH_USER }}@${{ secrets.DEPLOY_SSH_HOST }}:${{ secrets.DEPLOY_SSH_PATH }}/"
+        scp: "\"build/libs/*-all.jar\" ${{ secrets.DEPLOY_SSH_USER }}@${{ secrets.DEPLOY_SSH_HOST }}:${{ secrets.DEPLOY_SSH_PATH }}/"
         ssh_after: supervisorctl restart fang
         
 
