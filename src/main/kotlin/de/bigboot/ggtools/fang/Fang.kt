@@ -179,8 +179,9 @@ class Fang(private val client: GatewayDiscordClient) {
 
     private fun handleCommandEvent(event: MessageCreateEvent) = mono {
         val msg = event.message
+        val text = msg.content.toLowerCase()
 
-        val args = parseArgs(msg.content.substring(Config.PREFIX.length)).iterator()
+        val args = parseArgs(text.substring(Config.PREFIX.length)).iterator()
 
         val sudo = msg.content.startsWith("${Config.PREFIX}sudo")
                 && client.applicationInfo.awaitSingle().ownerId == Snowflake.of(msg.userData.id())
@@ -196,7 +197,7 @@ class Fang(private val client: GatewayDiscordClient) {
 
         if (command == null) {
             msg.channel.awaitSingle().createEmbed { embed ->
-                embed.setDescription("Unknown command: ${msg.content}")
+                embed.setDescription("Unknown command: $text")
             }.awaitFirst()
 
             return@mono
