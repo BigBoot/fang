@@ -13,7 +13,7 @@ class Group : de.bigboot.ggtools.fang.CommandGroupSpec("group", "Commands for ma
             onCall {
                 channel().createEmbed { embed ->
                     embed.setTitle("Groups")
-                    embed.setDescription(permissionManager.getGroups()
+                    embed.setDescription(permissionService.getGroups()
                         .joinToString("\n"))
                 }.awaitSingle()
             }
@@ -27,7 +27,7 @@ class Group : de.bigboot.ggtools.fang.CommandGroupSpec("group", "Commands for ma
                 channel().createEmbed { embed ->
                     embed.setTitle("Permissions for group $group")
                     embed.setDescription(
-                        permissionManager.getPermissions(group)
+                        permissionService.getPermissions(group)
                             ?.joinToString("\n") ?: "Group not found")
                 }.awaitSingle()
             }
@@ -41,7 +41,7 @@ class Group : de.bigboot.ggtools.fang.CommandGroupSpec("group", "Commands for ma
 
                 channel().createEmbed { embed ->
                     embed.setDescription(when {
-                        permissionManager.addGroup(group) -> "The group $group has been created"
+                        permissionService.addGroup(group) -> "The group $group has been created"
                         else -> "The group $group already exists"
                     })
                 }.awaitSingle()
@@ -64,7 +64,7 @@ class Group : de.bigboot.ggtools.fang.CommandGroupSpec("group", "Commands for ma
 
                 channel().createEmbed { embed ->
                     embed.setDescription(when {
-                        permissionManager.removeGroup(group) -> "The group $group has been deleted"
+                        permissionService.removeGroup(group) -> "The group $group has been deleted"
                         else -> "The group $group was not found"
                     })
                 }.awaitSingle()

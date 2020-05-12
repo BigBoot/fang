@@ -1,10 +1,10 @@
-package de.bigboot.ggtools.fang.commands
+package de.bigboot.ggtools.fang.commands.server
 
 import de.bigboot.ggtools.fang.CommandGroupBuilder
 import de.bigboot.ggtools.fang.CommandGroupSpec
-import de.bigboot.ggtools.fang.server.AdminPWRequest
-import de.bigboot.ggtools.fang.server.KillRequest
-import de.bigboot.ggtools.fang.server.StartRequest
+import de.bigboot.ggtools.fang.api.model.AdminPWRequest
+import de.bigboot.ggtools.fang.api.model.KillRequest
+import de.bigboot.ggtools.fang.api.model.StartRequest
 import discord4j.core.`object`.reaction.ReactionEmoji
 import kotlinx.coroutines.reactive.awaitFirstOrNull
 import kotlinx.coroutines.reactive.awaitSingle
@@ -16,7 +16,7 @@ class Server : CommandGroupSpec("server", "Commands for controlling servers") {
             onCall {
                 channel().createEmbed { embed ->
                     embed.setTitle("Servers")
-                    embed.setDescription(serverManager.getAllServers()
+                    embed.setDescription(serverService.getAllServers()
                         .joinToString { "${it.name} -> ${it.url}" })
                 }.awaitSingle()
             }
@@ -38,7 +38,7 @@ class Server : CommandGroupSpec("server", "Commands for controlling servers") {
                 val creature2 = args.optional("creature2")
                 val creature3 = args.optional("creature3")
 
-                val client = serverManager.getClient(server)
+                val client = serverService.getClient(server)
 
                 if (client == null) {
                     channel().createEmbed {
@@ -78,7 +78,7 @@ class Server : CommandGroupSpec("server", "Commands for controlling servers") {
                 val server = args["server"]
                 val instanceId = args.optional("instance_id")?.toIntOrNull() ?: 0
 
-                val client = serverManager.getClient(server)
+                val client = serverService.getClient(server)
 
                 if (client == null) {
                     channel().createEmbed {
@@ -88,7 +88,11 @@ class Server : CommandGroupSpec("server", "Commands for controlling servers") {
                     return@onCall
                 }
 
-                val response = client.kill(KillRequest(instanceId))
+                val response = client.kill(
+                    KillRequest(
+                        instanceId
+                    )
+                )
 
                 if (response.error != null) {
                     channel().createEmbed {
@@ -110,7 +114,7 @@ class Server : CommandGroupSpec("server", "Commands for controlling servers") {
                 val server = args["server"]
                 val instanceID = args.optional("instance_id")?.toIntOrNull() ?: 0
 
-                val client = serverManager.getClient(server)
+                val client = serverService.getClient(server)
 
                 if (client == null) {
                     channel().createEmbed {
@@ -137,7 +141,7 @@ class Server : CommandGroupSpec("server", "Commands for controlling servers") {
                 val server = args["server"]
                 val instanceID = args.optional("instance_id")?.toIntOrNull() ?: 0
 
-                val client = serverManager.getClient(server)
+                val client = serverService.getClient(server)
 
                 if (client == null) {
                     channel().createEmbed {
@@ -147,7 +151,11 @@ class Server : CommandGroupSpec("server", "Commands for controlling servers") {
                     return@onCall
                 }
 
-                val response = client.getAdminPW(AdminPWRequest(instanceID))
+                val response = client.getAdminPW(
+                    AdminPWRequest(
+                        instanceID
+                    )
+                )
 
                 if (response.adminPW == null) {
                     channel().createEmbed {

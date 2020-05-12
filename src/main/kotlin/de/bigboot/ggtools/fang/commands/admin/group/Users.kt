@@ -3,7 +3,6 @@ package de.bigboot.ggtools.fang.commands.admin.group
 import de.bigboot.ggtools.fang.CommandGroupBuilder
 import de.bigboot.ggtools.fang.CommandGroupSpec
 import de.bigboot.ggtools.fang.utils.findMember
-import kotlinx.coroutines.reactive.awaitFirstOrNull
 import kotlinx.coroutines.reactive.awaitSingle
 
 class Users : CommandGroupSpec("users", "Commands for managing users") {
@@ -23,7 +22,7 @@ class Users : CommandGroupSpec("users", "Commands for managing users") {
                     return@onCall
                 }
 
-                val groups = permissionManager.getGroupsByUser(user.id.asLong())
+                val groups = permissionService.getGroupsByUser(user.id.asLong())
 
                 channel().createEmbed { embed ->
                     embed.setTitle("Permissions of ${user.displayName}")
@@ -58,7 +57,7 @@ class Users : CommandGroupSpec("users", "Commands for managing users") {
                 channel().createEmbed { embed ->
                     embed.setDescription(
                         when {
-                            permissionManager.addUserToGroup(
+                            permissionService.addUserToGroup(
                                 user.id.asLong(),
                                 group
                             ) -> "<@${user.id.asString()}> has been added to group $group"
@@ -89,7 +88,7 @@ class Users : CommandGroupSpec("users", "Commands for managing users") {
                 channel().createEmbed { embed ->
                     embed.setDescription(
                         when {
-                            permissionManager.removeUserFromGroup(user.id.asLong(), group) -> "<@${user.id.asString()}> has been removed from the group $group"
+                            permissionService.removeUserFromGroup(user.id.asLong(), group) -> "<@${user.id.asString()}> has been removed from the group $group"
                             else -> "Group $group not found"
                         }
                     )
@@ -102,7 +101,7 @@ class Users : CommandGroupSpec("users", "Commands for managing users") {
 
             onCall {
                 val group = args["group"]
-                val users = permissionManager.getUsersByGroup(group)
+                val users = permissionService.getUsersByGroup(group)
 
                 if (users == null) {
                     channel().createEmbed { embed ->

@@ -1,11 +1,16 @@
-package de.bigboot.ggtools.fang
+package de.bigboot.ggtools.fang.service
 
+import de.bigboot.ggtools.fang.Config
 import de.bigboot.ggtools.fang.db.*
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
+import org.koin.core.KoinComponent
+import org.koin.core.inject
 import java.util.*
 
-class PermissionManager(database: Database) {
+class PermissionServiceImpl : PermissionService, KoinComponent {
+    private val database: Database by inject()
+
     init {
         transaction(database) {
             SchemaUtils.create(Groups, GroupPermissions, Users, UsersGroups)
@@ -36,7 +41,7 @@ class PermissionManager(database: Database) {
         }
     }
 
-    fun addGroup(name: String) = transaction {
+    override fun addGroup(name: String) = transaction {
         if (!Group.find { Groups.name eq name }.empty()) {
             return@transaction false
         }
@@ -48,15 +53,15 @@ class PermissionManager(database: Database) {
         return@transaction true
     }
 
-    fun removeGroup(name: String) = transaction {
+    override fun removeGroup(name: String) = transaction {
         Groups.deleteWhere { Groups.name eq name } != 0
     }
 
-    fun getGroups() = transaction {
+    override fun getGroups() = transaction {
         Group.all().map { it.name }.toList()
     }
 
-    fun addPermissionToGroup(groupName: String, permission: String) = transaction {
+    override fun addPermissionToGroup(groupName: String, permission: String) = transaction {
         val group = Group.find { Groups.name eq groupName }.firstOrNull() ?: return@transaction false
 
         if (!GroupPermission.find {
@@ -73,7 +78,7 @@ class PermissionManager(database: Database) {
         return@transaction true
     }
 
-    fun removePermissionFromGroup(groupName: String, permission: String) = transaction {
+    override fun removePermissionFromGroup(groupName: String, permission: String) = transaction {
         val group = Group.find { Groups.name eq groupName }.firstOrNull() ?: return@transaction false
 
         GroupPermissions.deleteWhere {
@@ -83,11 +88,11 @@ class PermissionManager(database: Database) {
         return@transaction true
     }
 
-    fun getPermissions(groupName: String) = transaction {
+    override fun getPermissions(groupName: String) = transaction {
         Group.find { Groups.name eq groupName }.firstOrNull()?.permissions?.map { it.permission }?.toList()
     }
 
-    fun addUserToGroup(snowflake: Long, groupName: String) = transaction {
+    override fun addUserToGroup(snowflake: Long, groupName: String) = transaction {
         val group = Group.find { Groups.name eq groupName }.firstOrNull() ?: return@transaction false
 
         val user = User.find { Users.snowflake eq snowflake }.firstOrNull() ?: User.new {
@@ -98,7 +103,7 @@ class PermissionManager(database: Database) {
         return@transaction true
     }
 
-    fun removeUserFromGroup(snowflake: Long, groupName: String) = transaction {
+    override fun removeUserFromGroup(snowflake: Long, groupName: String) = transaction {
         val group = Group.find { Groups.name eq groupName }.firstOrNull() ?: return@transaction false
 
         val user = User.find { Users.snowflake eq snowflake }.firstOrNull() ?: User.new {
@@ -109,12 +114,12 @@ class PermissionManager(database: Database) {
         return@transaction true
     }
 
-    fun getUsersByGroup(groupName: String) = transaction {
+    override fun getUsersByGroup(groupName: String) = transaction {
         val group = Group.find { Groups.name eq groupName }.firstOrNull() ?: return@transaction null
         return@transaction group.users.toList()
     }
 
-    fun getGroupsByUser(snowflake: Long): List<Pair<String, List<String>>> = transaction {
+    override fun getGroupsByUser(snowflake: Long): List<Pair<String, List<String>>> = transaction {
         (User.find { Users.snowflake eq snowflake }
             .firstOrNull()
             ?.groups

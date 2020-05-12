@@ -7,3 +7,6 @@ build/
 
 ### Config ###
 config.toml
+
+### Database ###
+*.*.db

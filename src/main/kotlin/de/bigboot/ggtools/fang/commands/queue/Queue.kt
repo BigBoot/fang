@@ -13,7 +13,7 @@ class Queue : CommandGroupSpec("queue", "Commands for matchmaking") {
                 channel().createMessage {
                     it.setEmbed { embed ->
                         embed.setTitle("Players waiting in queue")
-                        embed.setDescription(matchManager.getPlayers().joinToString("\n") { player ->
+                        embed.setDescription(matchService.getPlayers().joinToString("\n") { player ->
                             "<@$player>"
                         })
                     }
@@ -23,7 +23,7 @@ class Queue : CommandGroupSpec("queue", "Commands for matchmaking") {
 
         command("join", "join the queue") {
             onCall {
-                if(matchManager.join(Snowflake.of(message.userData.id()).asLong())) {
+                if(matchService.join(Snowflake.of(message.userData.id()).asLong())) {
                     channel().createEmbed { embed ->
                         embed.setDescription("<@${message.userData.id()}> joined the queue.")
                     }.awaitSingle()
@@ -33,7 +33,7 @@ class Queue : CommandGroupSpec("queue", "Commands for matchmaking") {
 
         command("leave", "leave the queue") {
             onCall {
-                if(matchManager.leave(Snowflake.of(message.userData.id()).asLong())) {
+                if(matchService.leave(Snowflake.of(message.userData.id()).asLong())) {
                     channel().createEmbed { embed ->
                         embed.setDescription("<@${message.userData.id()}> left the queue.")
                     }.awaitSingle()
@@ -43,7 +43,7 @@ class Queue : CommandGroupSpec("queue", "Commands for matchmaking") {
 
         command("pop", "Force the queue to pop even of there aren't enough players") {
             onCall {
-                matchManager.force()
+                matchService.force()
             }
         }
 
@@ -62,7 +62,7 @@ class Queue : CommandGroupSpec("queue", "Commands for matchmaking") {
                     return@onCall
                 }
 
-                matchManager.leave(user.id.asLong())
+                matchService.leave(user.id.asLong())
 
                 channel().createEmbed { embed ->
                     embed.setDescription("<@${user.id.asString()}> removed from the queue.")
@@ -83,7 +83,7 @@ class Queue : CommandGroupSpec("queue", "Commands for matchmaking") {
                     return@onCall
                 }
 
-                matchManager.request(Snowflake.of(message.userData.id()).asLong(), players)
+                matchService.request(Snowflake.of(message.userData.id()).asLong(), players)
             }
         }
     }

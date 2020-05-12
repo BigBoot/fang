@@ -20,8 +20,8 @@ class Server : CommandGroupSpec("server", "Commands for managing servers") {
                     it.setDescription("Adding $name to the list of servers")
                 }.awaitSingle()
 
-                if (serverManager.checkServer(name, url, apiKey)) {
-                    serverManager.addServer(name, url, apiKey)
+                if (serverService.checkServer(name, url, apiKey)) {
+                    serverService.addServer(name, url, apiKey)
                     msg.edit { edit ->
                         edit.setEmbed {
                             it.setDescription("Adding $name to the list of servers -> Success")
@@ -43,8 +43,8 @@ class Server : CommandGroupSpec("server", "Commands for managing servers") {
             onCall {
                 val name = args["name"]
 
-                if (serverManager.getClient(name) != null) {
-                    serverManager.removeServer(name)
+                if (serverService.getClient(name) != null) {
+                    serverService.removeServer(name)
                     channel().createEmbed {
                         it.setDescription("$name removed from the list of servers.")
                     }.awaitSingle()

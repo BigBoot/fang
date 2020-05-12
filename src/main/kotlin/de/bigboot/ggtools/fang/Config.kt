@@ -96,8 +96,8 @@ object Config {
 
     val BOT_TOKEN: String by required()
     val PREFIX: String by optional("!")
-    val DB_DRIVER: String by optional("com.mysql.jdbc.Driver")
-    val DB_URL: String by required()
+    val DB_DRIVER: String by optional("org.h2.Driver")
+    val DB_URL: String by optional("jdbc:h2:./fang")
     val DB_USER: String by optional("")
     val DB_PASS: String by optional("")
     val DEFAULT_GROUP_NAME: String by optional("default")

@@ -26,7 +26,7 @@ class Permissions : CommandGroupSpec("permissions", "Manage group permissions") 
                 channel().createEmbed { embed ->
                     embed.setDescription(
                         when {
-                            permissionManager.addPermissionToGroup(
+                            permissionService.addPermissionToGroup(
                                 group,
                                 permission
                             ) -> "Granted permission $permission to group $group"
@@ -56,7 +56,7 @@ class Permissions : CommandGroupSpec("permissions", "Manage group permissions") 
                 channel().createEmbed { embed ->
                     embed.setDescription(
                         when {
-                            permissionManager.removePermissionFromGroup(
+                            permissionService.removePermissionFromGroup(
                                 group,
                                 permission
                             ) -> "Removed permission $permission from group $group"

@@ -6,6 +6,10 @@ data class Argument (
     val optional: Boolean
 )
 
+interface Commands {
+    val commands: Map<String, Command>
+}
+
 abstract class CommandGroupSpec(val name: String, val description: String) {
     abstract val build: CommandGroupBuilder.() -> Unit
 }
@@ -17,8 +21,8 @@ sealed class Command(val name: String, val description: String) {
     class Invokable(name: String, description: String, val args: Array<Argument>, val handler: suspend CommandContext.()->Unit)
         : Command(name, description)
 
-    class Group(name: String, description: String, val commands: Map<String, Command>)
-        : Command(name, description) {
+    class Group(name: String, description: String, override val commands: Map<String, Command>)
+        : Command(name, description), Commands {
 
         operator fun plus(other: Command): Group {
             return Group(

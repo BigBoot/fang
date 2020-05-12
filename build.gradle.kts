@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.utils.addToStdlib.sumByLong
+
 plugins {
     application
 
@@ -7,6 +9,12 @@ plugins {
     id("com.github.johnrengelman.shadow") version "5.2.0"
 }
 
+repositories {
+    mavenCentral()
+    jcenter()
+    maven("https://dl.bintray.com/arrow-kt/arrow-kt/")
+}
+
 group = "de.bigboot.ggtools"
 version = "1.0-SNAPSHOT"
 
@@ -14,13 +22,8 @@ application {
     mainClassName = "de.bigboot.ggtools.fang.MainKt"
 }
 
-repositories {
-    mavenCentral()
-    jcenter()
-    maven("https://dl.bintray.com/arrow-kt/arrow-kt/")
-}
-
 dependencies {
+
     implementation(kotlin("stdlib-jdk8"))
 
     // kotlinx-coroutines & reactor extension
@@ -31,7 +34,17 @@ dependencies {
     implementation("org.jetbrains.exposed:exposed-core:0.21.1")
     implementation("org.jetbrains.exposed:exposed-dao:0.21.1")
     implementation("org.jetbrains.exposed:exposed-jdbc:0.21.1")
+
+    // Databases
     implementation("mysql:mysql-connector-java:8.0.20")
+    implementation("org.postgresql:postgresql:42.2.2")
+    //implementation("com.impossibl.pgjdbc-ng:pgjdbc-ng:0.8.3")
+    //implementation("org.xerial:sqlite-jdbc:3.30.1")
+    implementation("com.h2database:h2:1.4.199")
+    //implementation("com.microsoft.sqlserver:mssql-jdbc:6.4.0.jre7")
+
+    // Koin
+    implementation("org.koin:koin-core:2.1.5")
 
     // Discord4J
     implementation ("com.discord4j:discord4j-core:3.1.0.M2")

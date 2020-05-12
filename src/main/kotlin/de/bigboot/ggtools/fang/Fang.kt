@@ -1,6 +1,10 @@
 package de.bigboot.ggtools.fang
 
-import de.bigboot.ggtools.fang.commands.Commands
+import de.bigboot.ggtools.fang.commands.Root
+import de.bigboot.ggtools.fang.service.MatchService
+import de.bigboot.ggtools.fang.service.PermissionService
+import de.bigboot.ggtools.fang.utils.formatCommandHelp
+import de.bigboot.ggtools.fang.utils.formatCommandTree
 import de.bigboot.ggtools.fang.utils.parseArgs
 import de.bigboot.ggtools.fang.utils.print
 import discord4j.core.GatewayDiscordClient
@@ -20,68 +24,32 @@ import kotlinx.coroutines.reactive.awaitFirst
 import kotlinx.coroutines.reactive.awaitFirstOrNull
 import kotlinx.coroutines.reactive.awaitSingle
 import kotlinx.coroutines.reactor.mono
-import org.jetbrains.exposed.sql.Database
+import org.koin.core.KoinComponent
+import org.koin.core.inject
 import reactor.core.publisher.Mono
-import java.lang.StringBuilder
 import java.util.*
 import kotlin.collections.HashSet
 import kotlin.math.max
 
-class Fang(private val client: GatewayDiscordClient) {
-    private val database = Database.connect(
-        url = Config.DB_URL,
-        driver = Config.DB_DRIVER,
-        user = Config.DB_USER,
-        password = Config.DB_PASS
-    )
-    private val gcpManager = ServerManager(database)
-    private val permissionManager = PermissionManager(database)
-    private val matchManager = MatchManager(database)
+class Fang(private val client: GatewayDiscordClient): KoinComponent {
+    private val permissionService: PermissionService by inject()
+    private val matchService: MatchService by inject()
 
     private val updateStatusTimer = Timer(true)
 
-    private var commands = CommandGroupBuilder("", "").apply(Commands().build).build()
+    private var commands = CommandGroupBuilder("", "").apply(Root().build).build()
 
     init {
-        commands += Command.Invokable(
-            "help",
-            "show this help",
-            emptyArray()
-        ) {
-            channel().createEmbed { embed ->
-                embed.setTitle("Help")
-                embed.addField(
-                    "commands",
-                    this@Fang.commands.commands.values.joinToString("\n\n") {
-                        "${formatCommandHelp(
-                            it.name,
-                            it
-                        )}\n${it.description}"
-                    },
-                    false
-                )
-            }.awaitFirst()
-        }
-
-
-        commands += Command.Invokable(
-            "commands",
-            "Show all available commands",
-            emptyArray()
-        ) {
-            channel().createEmbed { embed ->
-                embed.setTitle("Commands")
-                embed.setDescription("```\n${printCommandTree()}\n```")
-
-            }.awaitFirst()
-        }
-
         updateStatusTimer.schedule(object : TimerTask() {
             override fun run() {
                 updateStatus()
             }
         }, 0, 2000)
 
+        registerEventListeners()
+    }
+
+    private fun registerEventListeners() {
         client.eventDispatcher.on(MessageCreateEvent::class.java)
             .filter { it.message.content.startsWith(Config.PREFIX) }
             .flatMap { event ->
@@ -134,47 +102,12 @@ class Fang(private val client: GatewayDiscordClient) {
             .subscribe()
 
         client.eventDispatcher.on(PresenceUpdateEvent::class.java)
-            .filter { it.current.status == Status.OFFLINE && matchManager.isPlayerQueued(it.userId.asLong()) }
-            .doOnNext { matchManager.leave(it.userId.asLong()) }
+            .filter { it.current.status == Status.OFFLINE && matchService.isPlayerQueued(it.userId.asLong()) }
+            .doOnNext { matchService.leave(it.userId.asLong()) }
             .subscribe()
     }
 
-    private fun buildCommandTree(command: Command, tree: StringBuilder, prefix: String, last: Boolean): StringBuilder {
-        val branch = when (last) {
-            true -> "└── "
-            false -> "├── "
-        }
 
-        tree.appendln("$prefix$branch${command.name}")
-
-        if (command is Command.Group) {
-            command.commands.values.forEachIndexed { i, subcommand ->
-                val sublast = command.commands.size - 1 == i
-
-                val subprefix = prefix + when {
-                    last -> "    "
-                    else -> "│   "
-                }
-                buildCommandTree(subcommand, tree, subprefix, sublast)
-            }
-
-            if (!last) {
-                tree.appendln("$prefix│   ")
-            }
-        }
-
-        return tree
-    }
-
-    private fun printCommandTree(): String {
-        val tree = StringBuilder()
-        commands.commands.values.forEachIndexed { i, subcommand ->
-            val last = commands.commands.size - 1 == i
-            buildCommandTree(subcommand, tree, "", last)
-        }
-
-        return tree.toString()
-    }
 
 
     private fun handleCommandEvent(event: MessageCreateEvent) = mono {
@@ -204,7 +137,7 @@ class Fang(private val client: GatewayDiscordClient) {
         }
 
         val namespace = command.namespace
-        val hasPermission = sudo || permissionManager
+        val hasPermission = sudo || permissionService
             .getGroupsByUser(Snowflake.of(msg.userData.id()).asLong())
             .flatMap { it.second }
             .toSet()
@@ -234,10 +167,7 @@ class Fang(private val client: GatewayDiscordClient) {
                             .zip(commandArgs).toMap())
                     val ctx = CommandContext(
                         args = argMap,
-                        message = msg,
-                        serverManager = gcpManager,
-                        matchManager = matchManager,
-                        permissionManager = permissionManager
+                        message = msg
                     )
                     command.handler(ctx)
                 } else {
@@ -250,13 +180,13 @@ class Fang(private val client: GatewayDiscordClient) {
             }
         }
 
-        if (matchManager.canPop()) {
+        if (matchService.canPop()) {
             handleQueuePop(msg.channel.awaitSingle())
         }
     }
 
     private suspend fun handleQueuePop(channel: MessageChannel) {
-        val pop = matchManager.pop()
+        val pop = matchService.pop()
         val players = pop.players
         val missing = HashSet(players)
         val accepted = HashSet<Long>()
@@ -284,8 +214,6 @@ class Fang(private val client: GatewayDiscordClient) {
             else -> "A match is ready, please react with a ${EMOJI_ACCEPT.print()}} to accept the match. " +
                     "You have ${Config.ACCEPT_TIMEOUT} seconds to accept, otherwise you will be removed from the queue."
         }
-
-
 
         while (true) {
             message.getReactors(EMOJI_ACCEPT)
@@ -343,16 +271,16 @@ class Fang(private val client: GatewayDiscordClient) {
             }.awaitSingle()
 
             for (player in accepted) {
-                matchManager.join(player)
+                matchService.join(player)
             }
         }
 
         for (player in denied) {
-            matchManager.join(player)
+            matchService.join(player)
         }
 
         for (player in missing) {
-            matchManager.leave(player)
+            matchService.leave(player)
         }
     }
 
@@ -374,7 +302,7 @@ class Fang(private val client: GatewayDiscordClient) {
 
         if (players.contains(event.userId.asLong())) {
             for (player in players) {
-                matchManager.join(player)
+                matchService.join(player)
             }
 
             message.edit {
@@ -391,7 +319,7 @@ class Fang(private val client: GatewayDiscordClient) {
     private fun handleMatchHubJoined(event: VoiceStateUpdateEvent) = mono {
         val userId = event.current.userId.asLong()
 
-        if (!matchManager.isPlayerQueued(userId)) {
+        if (!matchService.isPlayerQueued(userId)) {
             val msgChannel = event
                 .current
                 .guild
@@ -406,19 +334,6 @@ class Fang(private val client: GatewayDiscordClient) {
                     it.setContent("Hey <@${userId}>. I've noticed you joined the Match Hub voice channel, please remember to also join the queue with `~queue join`")
                 }.awaitSingle()
             }
-        }
-    }
-
-    private fun formatArg(arg: Argument) = if (arg.optional) {
-        "[${arg.name}]"
-    } else {
-        "<${arg.name}>"
-    }
-
-    private fun formatCommandHelp(name: String, command: Command): String {
-        return when (command) {
-            is Command.Invokable -> "$name ${command.args.joinToString(" ") { formatArg(it) }}"
-            is Command.Group -> "$name <subcommand>"
         }
     }
 
@@ -452,10 +367,10 @@ class Fang(private val client: GatewayDiscordClient) {
     }
 
     private fun updateStatus() {
-        val playersInQueue = matchManager.getNumPlayers()
+        val playersInQueue = matchService.getNumPlayers()
 
         val status = when {
-            playersInQueue > 0 -> "at ${matchManager.getNumPlayers()} players in queue"
+            playersInQueue > 0 -> "at ${matchService.getNumPlayers()} players in queue"
             else -> "at ${LOOKING_AT[((System.currentTimeMillis() / (60 * 1000)) % LOOKING_AT.size).toInt()]}"
         }
 
@@ -485,7 +400,7 @@ class Fang(private val client: GatewayDiscordClient) {
             "Pakkos toys"
         )
 
-        val EMOJI_ACCEPT = ReactionEmoji.custom(Snowflake.of("630950806450995201"), "ReadyScrollEmote", true)
+        val EMOJI_ACCEPT = ReactionEmoji.custom(Snowflake.of("630950806430023701"), "ReadyScrollEmote", true)
         val EMOJI_DENY = ReactionEmoji.unicode("\uD83D\uDC4E")
         val EMOJI_MATCH_FINISHED = ReactionEmoji.custom(Snowflake.of("632026748946481162"), "GG", false)
 
