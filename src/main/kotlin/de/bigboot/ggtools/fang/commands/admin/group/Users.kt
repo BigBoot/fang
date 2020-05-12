@@ -2,6 +2,7 @@ package de.bigboot.ggtools.fang.commands.admin.group
 
 import de.bigboot.ggtools.fang.CommandGroupBuilder
 import de.bigboot.ggtools.fang.CommandGroupSpec
+import de.bigboot.ggtools.fang.utils.findMember
 import kotlinx.coroutines.reactive.awaitFirstOrNull
 import kotlinx.coroutines.reactive.awaitSingle
 
@@ -13,9 +14,7 @@ class Users : CommandGroupSpec("users", "Commands for managing users") {
             onCall {
                 val userName = args["user"]
 
-                val user = guild().members
-                    .filter { it.displayName == userName }
-                    .awaitFirstOrNull()
+                val user = guild().findMember(userName)
 
                 if (user == null) {
                     channel().createEmbed { embed ->
@@ -47,9 +46,7 @@ class Users : CommandGroupSpec("users", "Commands for managing users") {
                 val userName = args["user"]
                 val group = args["group"]
 
-                val user = guild().members
-                    .filter { it.displayName == userName }
-                    .awaitFirstOrNull()
+                val user = guild().findMember(userName)
 
                 if (user == null) {
                     channel().createEmbed { embed ->
@@ -80,9 +77,7 @@ class Users : CommandGroupSpec("users", "Commands for managing users") {
                 val userName = args["user"]
                 val group = args["group"]
 
-                val user = guild().members
-                    .filter { it.displayName == userName }
-                    .awaitFirstOrNull()
+                val user = guild().findMember(userName)
 
                 if (user == null) {
                     channel().createEmbed { embed ->

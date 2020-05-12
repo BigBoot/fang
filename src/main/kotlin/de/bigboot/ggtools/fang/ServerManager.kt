@@ -20,7 +20,7 @@ class ServerManager(private val database: Database) {
 
         clients = transaction {
              Servers.selectAll().associate {
-                Pair(it[Servers.name], createClient(it[Servers.url], it[Servers.apiKey]))
+                Pair(it[Servers.name].toLowerCase(), createClient(it[Servers.url], it[Servers.apiKey]))
             }.toMutableMap()
         }
     }
@@ -39,7 +39,7 @@ class ServerManager(private val database: Database) {
 
     fun addServer(name: String, url: String, apiKey: String) {
         transaction(database) {
-            clients[name] = createClient(url, apiKey)
+            clients[name.toLowerCase()] = createClient(url, apiKey)
 
             Servers.deleteWhere { Servers.name eq name }
 
@@ -52,9 +52,9 @@ class ServerManager(private val database: Database) {
     }
 
     fun removeServer(name: String) {
-        clients.remove(name)
+        clients.remove(name.toLowerCase())
         transaction(database) {
-            Servers.deleteWhere { Servers.name eq name }
+            Servers.deleteWhere { Servers.name eq  name }
         }
     }
 
