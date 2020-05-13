@@ -2,7 +2,7 @@ package de.bigboot.ggtools.fang.utils
 
 import java.util.*
 
-
+@Suppress("ComplexMethod")
 fun parseArgs(string: CharSequence): List<String> {
     val tokens: MutableList<String> = ArrayList()
     var escaping = false

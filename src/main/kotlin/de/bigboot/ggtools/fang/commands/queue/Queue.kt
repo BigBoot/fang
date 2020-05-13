@@ -23,7 +23,7 @@ class Queue : CommandGroupSpec("queue", "Commands for matchmaking") {
 
         command("join", "join the queue") {
             onCall {
-                if(matchService.join(Snowflake.of(message.userData.id()).asLong())) {
+                if (matchService.join(Snowflake.of(message.userData.id()).asLong())) {
                     channel().createEmbed { embed ->
                         embed.setDescription("<@${message.userData.id()}> joined the queue.")
                     }.awaitSingle()
@@ -33,7 +33,7 @@ class Queue : CommandGroupSpec("queue", "Commands for matchmaking") {
 
         command("leave", "leave the queue") {
             onCall {
-                if(matchService.leave(Snowflake.of(message.userData.id()).asLong())) {
+                if (matchService.leave(Snowflake.of(message.userData.id()).asLong())) {
                     channel().createEmbed { embed ->
                         embed.setDescription("<@${message.userData.id()}> left the queue.")
                     }.awaitSingle()

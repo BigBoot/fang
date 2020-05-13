@@ -20,4 +20,3 @@ data class VersionResponse(
     @field:Json(name = "api_version")
     val apiVersion: Int
 )
-

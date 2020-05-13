@@ -1,5 +1,6 @@
 package de.bigboot.ggtools.fang.service
 
+import de.bigboot.ggtools.fang.Config
 import de.bigboot.ggtools.fang.db.Player
 import de.bigboot.ggtools.fang.db.Players
 import org.jetbrains.exposed.sql.*
@@ -36,7 +37,7 @@ class MatchServiceImpl : MatchService, KoinComponent {
         }
     }
 
-    override fun canPop(): Boolean = force || request != null || getNumPlayers() >= 10
+    override fun canPop(): Boolean = force || request != null || getNumPlayers() >= Config.REQUIRED_PLAYERS
 
     override fun force() {
         force = true
@@ -47,7 +48,7 @@ class MatchServiceImpl : MatchService, KoinComponent {
     }
 
     override fun pop(): MatchService.Pop {
-        val pop = MatchService.Pop (
+        val pop = MatchService.Pop(
             forced = force,
             request = request,
             players = transaction {
@@ -55,7 +56,7 @@ class MatchServiceImpl : MatchService, KoinComponent {
                     .find { Players.inMatch eq false }
                     .asSequence()
                     .sortedBy { it.joined }
-                    .take(10)
+                    .take(Config.REQUIRED_PLAYERS)
                     .onEach { it.inMatch = true }
                     .map { it.snowflake }
                     .toList()

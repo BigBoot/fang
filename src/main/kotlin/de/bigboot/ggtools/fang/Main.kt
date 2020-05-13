@@ -7,7 +7,6 @@ import discord4j.core.DiscordClient
 import kotlinx.coroutines.reactive.awaitSingle
 import org.koin.core.context.startKoin
 
-
 suspend fun main() {
     val configExceptions = Config.exceptions()
 

@@ -4,10 +4,10 @@ import de.bigboot.ggtools.fang.commands.Root
 import de.bigboot.ggtools.fang.service.MatchService
 import de.bigboot.ggtools.fang.service.PermissionService
 import de.bigboot.ggtools.fang.utils.formatCommandHelp
-import de.bigboot.ggtools.fang.utils.formatCommandTree
 import de.bigboot.ggtools.fang.utils.parseArgs
 import de.bigboot.ggtools.fang.utils.print
 import discord4j.core.GatewayDiscordClient
+import discord4j.core.`object`.entity.Message
 import discord4j.core.`object`.entity.channel.MessageChannel
 import discord4j.core.`object`.presence.Activity
 import discord4j.core.`object`.presence.Status
@@ -31,7 +31,7 @@ import java.util.*
 import kotlin.collections.HashSet
 import kotlin.math.max
 
-class Fang(private val client: GatewayDiscordClient): KoinComponent {
+class Fang(private val client: GatewayDiscordClient) : KoinComponent {
     private val permissionService: PermissionService by inject()
     private val matchService: MatchService by inject()
 
@@ -44,7 +44,7 @@ class Fang(private val client: GatewayDiscordClient): KoinComponent {
             override fun run() {
                 updateStatus()
             }
-        }, 0, 2000)
+        }, 0, Config.STATUSUPDATE_POLL_RATE)
 
         registerEventListeners()
     }
@@ -107,17 +107,14 @@ class Fang(private val client: GatewayDiscordClient): KoinComponent {
             .subscribe()
     }
 
-
-
-
     private fun handleCommandEvent(event: MessageCreateEvent) = mono {
         val msg = event.message
         val text = msg.content.toLowerCase()
 
         val args = parseArgs(text.substring(Config.PREFIX.length)).iterator()
 
-        val sudo = msg.content.startsWith("${Config.PREFIX}sudo")
-                && client.applicationInfo.awaitSingle().ownerId == Snowflake.of(msg.userData.id())
+        val sudo = msg.content.startsWith("${Config.PREFIX}sudo") &&
+                client.applicationInfo.awaitSingle().ownerId == Snowflake.of(msg.userData.id())
 
         if (sudo && args.hasNext()) {
             args.next()
@@ -159,17 +156,9 @@ class Fang(private val client: GatewayDiscordClient): KoinComponent {
 
         when (command) {
             is Command.Invokable -> {
-                val argRange = command.args.filter { !it.optional }.size..command.args.size
-                val commandArgs = args.asSequence().toList()
-                if (commandArgs.size in argRange) {
-                    val argMap =
-                        CommandContext.Arguments(command.args.map { it.name }
-                            .zip(commandArgs).toMap())
-                    val ctx = CommandContext(
-                        args = argMap,
-                        message = msg
-                    )
-                    command.handler(ctx)
+                val commandArgs = createCommandArguments(command, args.asSequence().toList())
+                if (commandArgs != null) {
+                    command.handler(CommandContext(commandArgs, msg))
                 } else {
                     printCommandHelp(msg.channel.awaitSingle(), command)
                 }
@@ -185,16 +174,19 @@ class Fang(private val client: GatewayDiscordClient): KoinComponent {
         }
     }
 
+    private fun createCommandArguments(command: Command.Invokable, args: Collection<String>): CommandContext.Arguments? {
+        val argRange = command.args.filter { !it.optional }.size..command.args.size
+        if (args.size in argRange) {
+            return CommandContext.Arguments(command.args.map { it.name }.zip(args).toMap())
+        }
+        return null
+    }
+
     private suspend fun handleQueuePop(channel: MessageChannel) {
         val pop = matchService.pop()
         val players = pop.players
-        val missing = HashSet(players)
-        val accepted = HashSet<Long>()
-        val denied = HashSet<Long>()
         val canDeny = pop.request != null
-        val requiredPlayers = pop.request?.minPlayers ?: 10
-
-        val endTime = System.currentTimeMillis() + (Config.ACCEPT_TIMEOUT * 1000L)
+        val requiredPlayers = pop.request?.minPlayers ?: Config.REQUIRED_PLAYERS
 
         val message = channel.createMessage {
             it.setContent(players.joinToString(" ") { player -> "<@$player>" })
@@ -202,7 +194,7 @@ class Fang(private val client: GatewayDiscordClient): KoinComponent {
 
         message.addReaction(EMOJI_ACCEPT).awaitFirstOrNull()
 
-        if(canDeny) {
+        if (canDeny) {
             message.addReaction(EMOJI_DENY).awaitFirstOrNull()
         }
 
@@ -215,42 +207,7 @@ class Fang(private val client: GatewayDiscordClient): KoinComponent {
                     "You have ${Config.ACCEPT_TIMEOUT} seconds to accept, otherwise you will be removed from the queue."
         }
 
-        while (true) {
-            message.getReactors(EMOJI_ACCEPT)
-                .filter { missing.contains(it.id.asLong()) }
-                .collectList()
-                .awaitSingle()
-                .onEach { accepted.add(it.id.asLong()) }
-                .onEach { missing.remove(it.id.asLong()) }
-
-            message.getReactors(EMOJI_DENY)
-                .filter { missing.contains(it.id.asLong()) }
-                .collectList()
-                .awaitSingle()
-                .onEach { denied.add(it.id.asLong()) }
-                .onEach { missing.remove(it.id.asLong()) }
-
-            if (System.currentTimeMillis() >= endTime || accepted.count() >= requiredPlayers || missing.isEmpty()) {
-                break
-            }
-
-            message.edit {
-                it.setEmbed { embed ->
-                    embed.setTitle("Match found!")
-                    embed.setDescription(content)
-                    embed.addField("Time remaining: ", "${max(0, (endTime - System.currentTimeMillis()) / 1000)}", true)
-                    if (missing.isNotEmpty()) {
-                        embed.addField(
-                            "Missing players: ",
-                            missing.joinToString(" ") { player -> "<@$player>" },
-                            true
-                        )
-                    }
-                }
-            }.awaitSingle()
-
-            delay(1000)
-        }
+        val (missing, accepted, denied) = waitForQueuePopResponses(message, pop, content)
 
         if (accepted.count() >= requiredPlayers) {
             message.edit {
@@ -282,6 +239,59 @@ class Fang(private val client: GatewayDiscordClient): KoinComponent {
         for (player in missing) {
             matchService.leave(player)
         }
+    }
+
+    private data class PopResonse(
+        val missing: Collection<Long>,
+        val accepted: MutableCollection<Long>,
+        val denied: MutableCollection<Long>
+    )
+
+    private suspend fun waitForQueuePopResponses(message: Message, pop: MatchService.Pop, messageContent: String): PopResonse {
+        val endTime = System.currentTimeMillis() + (Config.ACCEPT_TIMEOUT * 1000L)
+        val missing = HashSet(pop.players)
+        val accepted = HashSet<Long>()
+        val denied = HashSet<Long>()
+        val requiredPlayers = pop.request?.minPlayers ?: Config.REQUIRED_PLAYERS
+
+        while (true) {
+            message.getReactors(EMOJI_ACCEPT)
+                .filter { missing.contains(it.id.asLong()) }
+                .collectList()
+                .awaitSingle()
+                .onEach { accepted.add(it.id.asLong()) }
+                .onEach { missing.remove(it.id.asLong()) }
+
+            message.getReactors(EMOJI_DENY)
+                .filter { missing.contains(it.id.asLong()) }
+                .collectList()
+                .awaitSingle()
+                .onEach { denied.add(it.id.asLong()) }
+                .onEach { missing.remove(it.id.asLong()) }
+
+            if (System.currentTimeMillis() >= endTime || accepted.count() >= requiredPlayers || missing.isEmpty()) {
+                break
+            }
+
+            message.edit {
+                it.setEmbed { embed ->
+                    embed.setTitle("Match found!")
+                    embed.setDescription(messageContent)
+                    embed.addField("Time remaining: ", "${max(0, (endTime - System.currentTimeMillis()) / 1000)}", true)
+                    if (missing.isNotEmpty()) {
+                        embed.addField(
+                            "Missing players: ",
+                            missing.joinToString(" ") { player -> "<@$player>" },
+                            true
+                        )
+                    }
+                }
+            }.awaitSingle()
+
+            delay(1000)
+        }
+
+        return PopResonse(missing, accepted, denied)
     }
 
     private fun handleReactMatchFinished(event: ReactionAddEvent) = mono {
@@ -328,10 +338,9 @@ class Fang(private val client: GatewayDiscordClient): KoinComponent {
                 .filter { it.name == "match-hub" }
                 .awaitFirstOrNull()
 
-
             if (msgChannel is MessageChannel) {
                 msgChannel.createMessage {
-                    it.setContent("Hey <@${userId}>. I've noticed you joined the Match Hub voice channel, please remember to also join the queue with `~queue join`")
+                    it.setContent("Hey <@$userId>. I've noticed you joined the Match Hub voice channel, please remember to also join the queue with `~queue join`")
                 }.awaitSingle()
             }
         }

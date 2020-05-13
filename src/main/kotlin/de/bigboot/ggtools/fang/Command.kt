@@ -1,6 +1,6 @@
 package de.bigboot.ggtools.fang
 
-data class Argument (
+data class Argument(
     val name: String,
     val description: String,
     val optional: Boolean
@@ -18,11 +18,11 @@ sealed class Command(val name: String, val description: String) {
     var parent: Command? = null
         internal set
 
-    class Invokable(name: String, description: String, val args: Array<Argument>, val handler: suspend CommandContext.()->Unit)
-        : Command(name, description)
+    class Invokable(name: String, description: String, val args: Array<Argument>, val handler: suspend CommandContext.() -> Unit) :
+        Command(name, description)
 
-    class Group(name: String, description: String, override val commands: Map<String, Command>)
-        : Command(name, description), Commands {
+    class Group(name: String, description: String, override val commands: Map<String, Command>) :
+        Command(name, description), Commands {
 
         operator fun plus(other: Command): Group {
             return Group(
@@ -53,21 +53,19 @@ sealed class Command(val name: String, val description: String) {
     open val namespace: String get() = chain.joinToString(".") { it.name }
 }
 
-
-
 class CommandBuilder(private val name: String, private val description: String) {
-    private var handler: suspend CommandContext.()->Unit = {}
+    private var handler: suspend CommandContext.() -> Unit = {}
     private var args = ArrayList<Argument>()
 
     fun arg(name: String, description: String = "", optional: Boolean = false) {
         this.args.add(Argument(name, description, optional))
     }
 
-    fun onCall(handler: suspend CommandContext.()->Unit) {
+    fun onCall(handler: suspend CommandContext.() -> Unit) {
         this.handler = handler
     }
 
-    fun build() : Command.Invokable =
+    fun build(): Command.Invokable =
         Command.Invokable(
             name = name,
             description = description,

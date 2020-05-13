@@ -1,6 +1,5 @@
 package de.bigboot.ggtools.fang.commands
 
-import de.bigboot.ggtools.fang.Command
 import de.bigboot.ggtools.fang.CommandGroupBuilder
 import de.bigboot.ggtools.fang.CommandGroupSpec
 import de.bigboot.ggtools.fang.commands.admin.Admin
@@ -44,4 +43,3 @@ class Root : CommandGroupSpec("", "") {
         }
     }
 }
-

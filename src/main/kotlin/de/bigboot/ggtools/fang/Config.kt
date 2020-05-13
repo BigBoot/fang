@@ -9,11 +9,11 @@ import kotlin.properties.ReadOnlyProperty
 import kotlin.reflect.KProperty
 
 sealed class ConfigException(message: String, cause: Throwable? = null) : Exception(message, cause) {
-    class ConfigMissingException(key: String)
-        : ConfigException("Missing config value: $key")
+    class ConfigMissingException(key: String) :
+        ConfigException("Missing config value: $key")
 
-    class ConfigValueException(key: String, expected: Class<*>, actual: Class<*>)
-        : ConfigException("Invalid config value: $key (expected ${expected.simpleName}, got ${actual.simpleName})")
+    class ConfigValueException(key: String, expected: Class<*>, actual: Class<*>) :
+        ConfigException("Invalid config value: $key (expected ${expected.simpleName}, got ${actual.simpleName})")
 }
 
 class ExceptionProperty<T>(private val ex: ConfigException) : ReadOnlyProperty<Any, T> {
@@ -45,7 +45,7 @@ private open class PropertyFactory<T>(private val config: TomlTable, private val
     }
 }
 
-private class RequiredDelegateProvider<T>(config: TomlTable, returnType: Class<T>, private val  handler: (ConfigException) -> Unit) : PropertyFactory<T>(config, returnType) {
+private class RequiredDelegateProvider<T>(config: TomlTable, returnType: Class<T>, private val handler: (ConfigException) -> Unit) : PropertyFactory<T>(config, returnType) {
     operator fun provideDelegate(thisRef: Any, prop: KProperty<*>): ReadOnlyProperty<Any, T> {
         val key = prop.name.toLowerCase()
         return try {
@@ -72,12 +72,13 @@ private class OptionalDelegateProvider<T>(config: TomlTable, returnType: Class<T
     }
 }
 
+@Suppress("MagicNumber")
 object Config {
-    private val config: TomlParseResult = Toml.parse(Paths.get("config.toml"))
+    private val toml: TomlParseResult = Toml.parse(Paths.get("config.toml"))
     private val exceptions: ArrayList<ConfigException> = ArrayList()
 
     private inline fun <reified T> required() = RequiredDelegateProvider(
-        config,
+        toml,
         T::class.java
     ) {
         exceptions.add(it)
@@ -85,7 +86,7 @@ object Config {
 
     private inline fun <reified T> optional(default: T) =
         OptionalDelegateProvider(
-            config,
+            toml,
             T::class.java,
             default
         ) {
@@ -105,5 +106,6 @@ object Config {
     val ADMIN_GROUP_NAME: String by optional("admin")
     val ADMIN_GROUP_PERMISSIONS: List<String> by optional(listOf("*"))
     val ACCEPT_TIMEOUT: Int by optional(120)
+    val STATUSUPDATE_POLL_RATE: Long by optional(2000L)
+    val REQUIRED_PLAYERS: Int by optional(10)
 }
-

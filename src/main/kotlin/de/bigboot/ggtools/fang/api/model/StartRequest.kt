@@ -4,7 +4,7 @@ import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 
 @JsonClass(generateAdapter = true)
-data class StartRequest (
+data class StartRequest(
     @field:Json(name = "map")
     val map: String,
 

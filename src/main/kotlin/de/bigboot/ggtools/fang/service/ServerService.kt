@@ -1,13 +1,8 @@
 package de.bigboot.ggtools.fang.service
 
 import de.bigboot.ggtools.fang.db.Server
-import de.bigboot.ggtools.fang.db.Servers
 import de.bigboot.ggtools.fang.api.ServerApi
-import okhttp3.OkHttpClient
 import org.jetbrains.exposed.sql.*
-import org.jetbrains.exposed.sql.transactions.transaction
-import retrofit2.Retrofit
-import retrofit2.converter.moshi.MoshiConverterFactory
 
 interface ServerService {
 

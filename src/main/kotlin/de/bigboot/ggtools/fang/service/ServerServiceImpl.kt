@@ -35,8 +35,7 @@ class ServerServiceImpl : ServerService, KoinComponent {
         try {
             val client = createClient(url, apiKey)
             client.getVersion()
-        }
-        catch (ex: Exception) {
+        } catch (ignored: Exception) {
             return false
         }
         return true
@@ -59,7 +58,7 @@ class ServerServiceImpl : ServerService, KoinComponent {
     override fun removeServer(name: String) {
         clients.remove(name.toLowerCase())
         transaction(database) {
-            Servers.deleteWhere { Servers.name eq  name }
+            Servers.deleteWhere { Servers.name eq name }
         }
     }
 
@@ -73,7 +72,7 @@ class ServerServiceImpl : ServerService, KoinComponent {
         }
     }
 
-    private fun createClient(url: String, apiKey: String) : ServerApi = Retrofit.Builder()
+    private fun createClient(url: String, apiKey: String): ServerApi = Retrofit.Builder()
         .baseUrl("$url/api/".replace("//", "/"))
         .addConverterFactory(MoshiConverterFactory.create())
         .client(

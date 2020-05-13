@@ -1,4 +1,5 @@
-import org.jetbrains.kotlin.utils.addToStdlib.sumByLong
+
+import io.gitlab.arturbosch.detekt.Detekt
 
 plugins {
     application
@@ -7,6 +8,7 @@ plugins {
     kotlin("kapt") version "1.3.72"
 
     id("com.github.johnrengelman.shadow") version "5.2.0"
+    id("io.gitlab.arturbosch.detekt").version("1.9.0")
 }
 
 repositories {
@@ -38,16 +40,16 @@ dependencies {
     // Databases
     implementation("mysql:mysql-connector-java:8.0.20")
     implementation("org.postgresql:postgresql:42.2.2")
-    //implementation("com.impossibl.pgjdbc-ng:pgjdbc-ng:0.8.3")
-    //implementation("org.xerial:sqlite-jdbc:3.30.1")
+    // implementation("com.impossibl.pgjdbc-ng:pgjdbc-ng:0.8.3")
+    // implementation("org.xerial:sqlite-jdbc:3.30.1")
     implementation("com.h2database:h2:1.4.199")
-    //implementation("com.microsoft.sqlserver:mssql-jdbc:6.4.0.jre7")
+    // implementation("com.microsoft.sqlserver:mssql-jdbc:6.4.0.jre7")
 
     // Koin
     implementation("org.koin:koin-core:2.1.5")
 
     // Discord4J
-    implementation ("com.discord4j:discord4j-core:3.1.0.M2")
+    implementation("com.discord4j:discord4j-core:3.1.0.M2")
 
     // Retrofit
     implementation("com.squareup.retrofit2:retrofit:2.8.1")
@@ -61,8 +63,10 @@ dependencies {
     implementation("org.tomlj:tomlj:1.0.0")
 
     // JUnit
-    testImplementation("org.junit.jupiter:junit-jupiter-api:5.3.1" )
-    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.3.1" )
+    testImplementation("org.junit.jupiter:junit-jupiter-api:5.3.1")
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.3.1")
+
+    detektPlugins("io.gitlab.arturbosch.detekt:detekt-formatting:1.9.0")
 }
 
 tasks.withType<Test> {
@@ -76,4 +80,31 @@ tasks {
     compileTestKotlin {
         kotlinOptions.jvmTarget = "1.8"
     }
+}
+
+tasks.withType<Detekt> {
+    setSource(files(projectDir))
+    include("**/*.kt")
+    include("**/*.kts")
+    exclude("**/resources/**")
+    exclude("**/build/**")
+
+    config.setFrom(files("detekt.yml"))
+
+    reports {
+        html {
+            enabled = true
+            destination = file("build/reports/detekt.html")
+        }
+        txt {
+            enabled = false
+        }
+        xml {
+            enabled = false
+        }
+    }
+}
+
+tasks.register<Detekt>("detektApply") {
+    autoCorrect = true
 }

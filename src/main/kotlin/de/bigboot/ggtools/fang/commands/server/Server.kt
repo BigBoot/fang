@@ -126,7 +126,7 @@ class Server : CommandGroupSpec("server", "Commands for controlling servers") {
 
                 val response = client.getPlayers(instanceID)
                 channel().createEmbed {
-                    it.setDescription("Players:\n" + response.joinToString("\n") {player ->
+                    it.setDescription("Players:\n" + response.joinToString("\n") { player ->
                         "${player.name} -> ${player.hero ?: "Selecting"}"
                     })
                 }.awaitSingle()
@@ -176,8 +176,7 @@ class Server : CommandGroupSpec("server", "Commands for controlling servers") {
 
                 if (privateMessage != null) {
                     message.addReaction(ReactionEmoji.unicode("\uD83D\uDC4C")).awaitFirstOrNull()
-                }
-                else {
+                } else {
                     channel().createEmbed {
                         it.setDescription("Could not send a DM.\nMake sure you can receive direct messages from server members.")
                     }.awaitSingle()
