@@ -8,7 +8,7 @@ import kotlin.collections.ArrayList
 import kotlin.properties.ReadOnlyProperty
 import kotlin.reflect.KProperty
 
-sealed class ConfigException(message: String, cause: Throwable? = null) : Exception(message, cause) {
+sealed class ConfigException(override val message: String, cause: Throwable? = null) : Exception(message, cause) {
     class ConfigMissingException(key: String) :
         ConfigException("Missing config value: $key")
 
@@ -108,4 +108,5 @@ object Config {
     val ACCEPT_TIMEOUT: Int by optional(120)
     val STATUSUPDATE_POLL_RATE: Long by optional(2000L)
     val REQUIRED_PLAYERS: Int by optional(10)
+    val LOG_LEVEL: String by optional("info")
 }

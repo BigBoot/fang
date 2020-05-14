@@ -21,32 +21,6 @@ class Queue : CommandGroupSpec("queue", "Commands for matchmaking") {
             }
         }
 
-        command("join", "join the queue") {
-            onCall {
-                if (matchService.join(Snowflake.of(message.userData.id()).asLong())) {
-                    channel().createEmbed { embed ->
-                        embed.setDescription("<@${message.userData.id()}> joined the queue.")
-                    }.awaitSingle()
-                }
-            }
-        }
-
-        command("leave", "leave the queue") {
-            onCall {
-                if (matchService.leave(Snowflake.of(message.userData.id()).asLong())) {
-                    channel().createEmbed { embed ->
-                        embed.setDescription("<@${message.userData.id()}> left the queue.")
-                    }.awaitSingle()
-                }
-            }
-        }
-
-        command("pop", "Force the queue to pop even of there aren't enough players") {
-            onCall {
-                matchService.force()
-            }
-        }
-
         command("kick", "Kick a player from the queue") {
             arg("player", "the player to kick")
 

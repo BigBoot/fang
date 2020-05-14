@@ -14,24 +14,28 @@ import discord4j.core.`object`.presence.Status
 import discord4j.core.`object`.reaction.ReactionEmoji
 import discord4j.core.event.domain.PresenceUpdateEvent
 import discord4j.core.event.domain.VoiceStateUpdateEvent
+import discord4j.core.event.domain.guild.GuildCreateEvent
 import discord4j.core.event.domain.message.MessageCreateEvent
 import discord4j.core.event.domain.message.ReactionAddEvent
 import discord4j.discordjson.json.ActivityUpdateRequest
 import discord4j.discordjson.json.gateway.StatusUpdate
 import discord4j.rest.util.Snowflake
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.*
 import kotlinx.coroutines.reactive.awaitFirst
 import kotlinx.coroutines.reactive.awaitFirstOrNull
 import kotlinx.coroutines.reactive.awaitSingle
 import kotlinx.coroutines.reactor.mono
 import org.koin.core.KoinComponent
 import org.koin.core.inject
+import org.tinylog.Logger
 import reactor.core.publisher.Mono
-import java.util.*
-import kotlin.collections.HashSet
+import java.util.Optional
+import java.util.Timer
+import java.util.TimerTask
 import kotlin.math.max
 
 class Fang(private val client: GatewayDiscordClient) : KoinComponent {
+    private val botId: Snowflake
     private val permissionService: PermissionService by inject()
     private val matchService: MatchService by inject()
 
@@ -46,6 +50,10 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
             }
         }, 0, Config.STATUSUPDATE_POLL_RATE)
 
+        botId = runBlocking {
+            client.selfId.awaitSingle()
+        }
+
         registerEventListeners()
     }
 
@@ -56,7 +64,7 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
                 handleCommandEvent(event)
                     .onErrorResume { error ->
                         // log and then discard the error to keep the sequence alive
-                        error.printStackTrace()
+                        Logger.warn(error)
                         Mono.empty()
                     }
             }
@@ -73,7 +81,7 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
                 handleMatchHubJoined(event)
                     .onErrorResume { error ->
                         // log and then discard the error to keep the sequence alive
-                        error.printStackTrace()
+                        Logger.warn(error)
                         Mono.empty()
                     }
             }
@@ -85,7 +93,6 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
                 mono {
                     val message = it.message.awaitSingle()
                     val userId = Snowflake.of(message.userData.id())
-                    val botId = client.selfId.awaitSingle()
                     userId == botId && message.getReactors(EMOJI_MATCH_FINISHED)
                         .any { it.id == botId }
                         .awaitSingle()
@@ -95,7 +102,7 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
                 handleReactMatchFinished(event)
                     .onErrorResume { error ->
                         // log and then discard the error to keep the sequence alive
-                        error.printStackTrace()
+                        Logger.warn(error)
                         Mono.empty()
                     }
             }
@@ -105,6 +112,94 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
             .filter { it.current.status == Status.OFFLINE && matchService.isPlayerQueued(it.userId.asLong()) }
             .doOnNext { matchService.leave(it.userId.asLong()) }
             .subscribe()
+
+        client.eventDispatcher.on(GuildCreateEvent::class.java)
+            .flatMap { event ->
+                handleGuildCreateEvent(event)
+                    .onErrorResume { error ->
+                        // log and then discard the error to keep the sequence alive
+                        Logger.warn(error)
+                        Mono.empty()
+                    }
+            }
+            .subscribe()
+    }
+
+    private fun handleGuildCreateEvent(event: GuildCreateEvent) = mono {
+        Logger.info { "Joined Guild: ${event.guild.name}" }
+
+        val queueChannel = event.guild.channels
+            .filter { it.name == "match-queue" }
+            .awaitFirstOrNull() as? MessageChannel
+
+        if (queueChannel != null) {
+            Logger.info { "Found queue channel! Starting cleanup!" }
+
+            if (queueChannel.lastMessageId.isPresent) {
+                queueChannel
+                    .getMessagesBefore(queueChannel.lastMessageId.get())
+                    .doOnNext { it.delete().subscribe() }
+                    .subscribe()
+
+                queueChannel.lastMessage.doOnNext { it.delete().subscribe() }.subscribe()
+            }
+
+            val queueMsg = queueChannel.createMessage {
+                it.setEmbed {}
+            }.awaitSingle()
+
+            queueMsg.addReaction(EMOJI_JOIN_QUEUE).awaitFirstOrNull()
+            queueMsg.addReaction(EMOJI_LEAVE_QUEUE).awaitFirstOrNull()
+
+            queueChannel.createMessage {
+                @Suppress("MagicNumber")
+                it.setContent("-".repeat(32))
+            }.awaitSingle()
+
+            while (true) {
+                queueMsg.getReactors(EMOJI_JOIN_QUEUE)
+                    .filter { it.id != botId }
+                    .collectList()
+                    .awaitSingle()
+                    .forEach { user ->
+                        matchService.join(user.id.asLong())
+                        queueMsg.removeReaction(EMOJI_JOIN_QUEUE, user.id).awaitFirstOrNull()
+                    }
+
+                queueMsg.getReactors(EMOJI_LEAVE_QUEUE)
+                    .filter { it.id != botId }
+                    .collectList()
+                    .awaitSingle()
+                    .forEach { user ->
+                        matchService.leave(user.id.asLong())
+                        queueMsg.removeReaction(EMOJI_LEAVE_QUEUE, user.id).awaitFirstOrNull()
+                    }
+
+                queueMsg.edit { msg ->
+                    msg.setEmbed { embed ->
+                        embed.setTitle("Players waiting in queue")
+                        val players = when {
+                            matchService.getNumPlayers() == 0 -> "No one in queue ${EMOJI_QUEUE_EMPTY.print()}."
+                            else -> matchService.getPlayers().joinToString("\n") { it -> "<@$it>" }
+                        }
+
+                        embed.setDescription("""
+                        | $players
+                        | 
+                        | Use ${EMOJI_JOIN_QUEUE.print()} to join the queue.
+                        | Use ${EMOJI_LEAVE_QUEUE.print()} to leave the queue.   
+                        """.trimMargin())
+                    }
+                }.awaitSingle()
+
+                if (matchService.canPop()) {
+                    handleQueuePop(queueChannel)
+                }
+
+                @Suppress("MagicNumber")
+                delay(500)
+            }
+        }
     }
 
     private fun handleCommandEvent(event: MessageCreateEvent) = mono {
@@ -168,10 +263,6 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
                 printCommandHelp(msg.channel.awaitSingle(), command)
             }
         }
-
-        if (matchService.canPop()) {
-            handleQueuePop(msg.channel.awaitSingle())
-        }
     }
 
     private fun createCommandArguments(command: Command.Invokable, args: Collection<String>): CommandContext.Arguments? {
@@ -218,6 +309,7 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
                 }
             }.awaitSingle()
 
+            message.removeAllReactions().awaitFirstOrNull()
             message.addReaction(EMOJI_MATCH_FINISHED).awaitFirstOrNull()
         } else {
             message.edit {
@@ -238,6 +330,16 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
 
         for (player in missing) {
             matchService.leave(player)
+        }
+
+        val channelId = channel.id
+        val messageId = message.id
+        CoroutineScope(Dispatchers.Default).launch {
+            delay(2 * 60 * 60 * 1000L)
+            client.getMessageById(channelId, messageId)
+                .awaitFirstOrNull()
+                ?.delete()
+                ?.awaitFirstOrNull()
         }
     }
 
@@ -322,7 +424,7 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
                 }
             }.awaitSingle()
 
-            message.removeSelfReaction(EMOJI_MATCH_FINISHED).awaitSingle()
+            message.removeAllReactions().awaitFirstOrNull()
         }
     }
 
@@ -335,13 +437,19 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
                 .guild
                 .awaitSingle()
                 .channels
-                .filter { it.name == "match-hub" }
+                .filter { it.name == "match-queue" }
                 .awaitFirstOrNull()
 
+            matchService.join(userId)
+
             if (msgChannel is MessageChannel) {
-                msgChannel.createMessage {
-                    it.setContent("Hey <@$userId>. I've noticed you joined the Match Hub voice channel, please remember to also join the queue with `~queue join`")
+                val msg = msgChannel.createMessage {
+                    it.setContent("Hey <@$userId>. I've noticed you joined the Match Hub voice channel, so I've added you to the queue. Don't forget to leave the queue when you're not available anymore.")
                 }.awaitSingle()
+
+                delay(60 * 1000)
+
+                msg.delete().awaitFirstOrNull()
             }
         }
     }
@@ -409,11 +517,18 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
             "Pakkos toys"
         )
 
-        val EMOJI_ACCEPT = ReactionEmoji.custom(Snowflake.of("630950806430023701"), "ReadyScrollEmote", true)
-        val EMOJI_DENY = ReactionEmoji.unicode("\uD83D\uDC4E")
-        val EMOJI_MATCH_FINISHED = ReactionEmoji.custom(Snowflake.of("632026748946481162"), "GG", false)
+//        val EMOJI_ACCEPT = ReactionEmoji.custom(Snowflake.of("630950806430023701"), "ReadyScrollEmote", true)
+//        val EMOJI_DENY = ReactionEmoji.unicode("\uD83D\uDC4E")
+//        val EMOJI_MATCH_FINISHED = ReactionEmoji.custom(Snowflake.of("632026748946481162"), "GG", false)
+//        val EMOJI_QUEUE_EMPTY = ReactionEmoji.custom(Snowflake.of("631489587092520980"), "FeelsWuMan", false)
+//        val EMOJI_JOIN_QUEUE = ReactionEmoji.custom(Snowflake.of("630952770694021130"), "GiganticHeart", false)
+//        val EMOJI_LEAVE_QUEUE = ReactionEmoji.custom(Snowflake.of("631660093108256768"), "GiganticBrokenHeart", false)
 
-//        val EMOJI_ACCEPT = ReactionEmoji.unicode("\uD83D\uDC4D")
-//        val EMOJI_MATCH_FINISHED = ReactionEmoji.unicode("\uD83C\uDFC1")
+        val EMOJI_ACCEPT = ReactionEmoji.unicode("\uD83D\uDC4D")
+        val EMOJI_DENY = ReactionEmoji.unicode("\uD83D\uDC4E")
+        val EMOJI_MATCH_FINISHED = ReactionEmoji.unicode("\uD83C\uDFC1")
+        val EMOJI_QUEUE_EMPTY = ReactionEmoji.unicode("\uD83D\uDE22")
+        val EMOJI_JOIN_QUEUE = ReactionEmoji.unicode("\uD83D\uDC4D")
+        val EMOJI_LEAVE_QUEUE = ReactionEmoji.unicode("\uD83D\uDC4E")
     }
 }
