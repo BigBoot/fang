@@ -517,18 +517,18 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
             "Pakkos toys"
         )
 
-//        val EMOJI_ACCEPT = ReactionEmoji.custom(Snowflake.of("630950806430023701"), "ReadyScrollEmote", true)
-//        val EMOJI_DENY = ReactionEmoji.unicode("\uD83D\uDC4E")
-//        val EMOJI_MATCH_FINISHED = ReactionEmoji.custom(Snowflake.of("632026748946481162"), "GG", false)
-//        val EMOJI_QUEUE_EMPTY = ReactionEmoji.custom(Snowflake.of("631489587092520980"), "FeelsWuMan", false)
-//        val EMOJI_JOIN_QUEUE = ReactionEmoji.custom(Snowflake.of("630952770694021130"), "GiganticHeart", false)
-//        val EMOJI_LEAVE_QUEUE = ReactionEmoji.custom(Snowflake.of("631660093108256768"), "GiganticBrokenHeart", false)
-
-        val EMOJI_ACCEPT = ReactionEmoji.unicode("\uD83D\uDC4D")
+        val EMOJI_ACCEPT = ReactionEmoji.custom(Snowflake.of("630950806430023701"), "ReadyScrollEmote", true)
         val EMOJI_DENY = ReactionEmoji.unicode("\uD83D\uDC4E")
-        val EMOJI_MATCH_FINISHED = ReactionEmoji.unicode("\uD83C\uDFC1")
-        val EMOJI_QUEUE_EMPTY = ReactionEmoji.unicode("\uD83D\uDE22")
-        val EMOJI_JOIN_QUEUE = ReactionEmoji.unicode("\uD83D\uDC4D")
-        val EMOJI_LEAVE_QUEUE = ReactionEmoji.unicode("\uD83D\uDC4E")
+        val EMOJI_MATCH_FINISHED = ReactionEmoji.custom(Snowflake.of("632026748946481162"), "GG", false)
+        val EMOJI_QUEUE_EMPTY = ReactionEmoji.custom(Snowflake.of("631489587092520980"), "FeelsWuMan", false)
+        val EMOJI_JOIN_QUEUE = ReactionEmoji.custom(Snowflake.of("630952770694021130"), "GiganticHeart", false)
+        val EMOJI_LEAVE_QUEUE = ReactionEmoji.custom(Snowflake.of("631660093108256768"), "GiganticBrokenHeart", false)
+
+//        val EMOJI_ACCEPT = ReactionEmoji.unicode("\uD83D\uDC4D")
+//        val EMOJI_DENY = ReactionEmoji.unicode("\uD83D\uDC4E")
+//        val EMOJI_MATCH_FINISHED = ReactionEmoji.unicode("\uD83C\uDFC1")
+//        val EMOJI_QUEUE_EMPTY = ReactionEmoji.unicode("\uD83D\uDE22")
+//        val EMOJI_JOIN_QUEUE = ReactionEmoji.unicode("\uD83D\uDC4D")
+//        val EMOJI_LEAVE_QUEUE = ReactionEmoji.unicode("\uD83D\uDC4E")
     }
 }
