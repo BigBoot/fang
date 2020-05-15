@@ -6,7 +6,6 @@ import de.bigboot.ggtools.fang.di.serviceModule
 import discord4j.core.DiscordClient
 import kotlinx.coroutines.reactive.awaitSingle
 import org.flywaydb.core.Flyway
-import org.flywaydb.core.api.configuration.Configuration
 import org.koin.core.context.startKoin
 import org.koin.core.logger.Level
 import org.koin.core.logger.Level.*
@@ -18,7 +17,7 @@ suspend fun main() {
 
     Flyway
         .configure()
-        .locations("classpath:${Fang::class.java.packageName.replace(".", "/")}")
+        .locations("classpath:/de/bigboot/ggtools/fang")
         .dataSource(Config.database.url, Config.database.user, Config.database.pass)
         .baselineOnMigrate(true)
         .load()
