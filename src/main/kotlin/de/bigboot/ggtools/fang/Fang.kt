@@ -32,6 +32,7 @@ import reactor.core.publisher.Mono
 import java.util.Optional
 import java.util.Timer
 import java.util.TimerTask
+import java.util.concurrent.Executors
 import kotlin.math.max
 
 class Fang(private val client: GatewayDiscordClient) : KoinComponent {
@@ -156,27 +157,38 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
                 it.setContent("-".repeat(32))
             }.awaitSingle()
 
-            while (true) {
-                queueMsg.getReactors(EMOJI_JOIN_QUEUE)
+            CoroutineScope(Executors.newSingleThreadExecutor().asCoroutineDispatcher()).launch {
+                queueMessageUpdateLoop(queueChannel.id, queueMsg.id)
+            }
+        }
+    }
+
+    private suspend fun queueMessageUpdateLoop(channelId: Snowflake, msgId: Snowflake) {
+        while (true) {
+            try {
+                val channel = client.getChannelById(channelId).awaitSingle() as MessageChannel
+                val msg = client.getMessageById(channelId, msgId).awaitSingle()
+
+                msg.getReactors(EMOJI_JOIN_QUEUE)
                     .filter { it.id != botId }
                     .collectList()
                     .awaitSingle()
                     .forEach { user ->
                         matchService.join(user.id.asLong())
-                        queueMsg.removeReaction(EMOJI_JOIN_QUEUE, user.id).awaitFirstOrNull()
+                        msg.removeReaction(EMOJI_JOIN_QUEUE, user.id).awaitFirstOrNull()
                     }
 
-                queueMsg.getReactors(EMOJI_LEAVE_QUEUE)
+                msg.getReactors(EMOJI_LEAVE_QUEUE)
                     .filter { it.id != botId }
                     .collectList()
                     .awaitSingle()
                     .forEach { user ->
                         matchService.leave(user.id.asLong())
-                        queueMsg.removeReaction(EMOJI_LEAVE_QUEUE, user.id).awaitFirstOrNull()
+                        msg.removeReaction(EMOJI_LEAVE_QUEUE, user.id).awaitFirstOrNull()
                     }
 
-                queueMsg.edit { msg ->
-                    msg.setEmbed { embed ->
+                msg.edit { edit ->
+                    edit.setEmbed { embed ->
                         embed.setTitle("Players waiting in queue")
                         val players = when {
                             matchService.getNumPlayers() == 0 -> "No one in queue ${EMOJI_QUEUE_EMPTY.print()}."
@@ -193,11 +205,12 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
                 }.awaitSingle()
 
                 if (matchService.canPop()) {
-                    handleQueuePop(queueChannel)
+                    handleQueuePop(channel)
                 }
 
                 @Suppress("MagicNumber")
                 delay(500)
+            } catch (ignore: Exception) {
             }
         }
     }
