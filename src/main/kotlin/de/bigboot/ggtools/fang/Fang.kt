@@ -191,7 +191,7 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
 
                 msg.edit { edit ->
                     edit.setEmbed { embed ->
-                        embed.setTitle("Players waiting in queue")
+                        embed.setTitle("${matchService.getNumPlayers()} players waiting in queue")
                         val players = when {
                             matchService.getNumPlayers() == 0 -> "No one in queue ${Config.emojis.queue_empty}."
                             else -> matchService.getPlayers().joinToString("\n") { player ->
