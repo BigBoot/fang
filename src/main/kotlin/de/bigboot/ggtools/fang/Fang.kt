@@ -194,7 +194,7 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
                         embed.setTitle("${matchService.getNumPlayers()} players waiting in queue")
                         val players = when {
                             matchService.getNumPlayers() == 0 -> "No one in queue ${Config.emojis.queue_empty}."
-                            else -> matchService.getPlayers().joinToString("\n") { player ->
+                            else -> matchService.getPlayers().sortedBy { it.joined }.joinToString("\n") { player ->
                                 val duration = ChronoUnit.MILLIS.between(Instant.ofEpochMilli(player.joined), Instant.now())
                                     "<@${player.snowflake}> (In queue for ${duration.milliSecondsToTimespan()})"
                             }
