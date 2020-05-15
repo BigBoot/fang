@@ -63,10 +63,10 @@ class MatchServiceImpl : MatchService, KoinComponent {
         return pop
     }
 
-    override fun getPlayers(): Collection<Long> = transaction(database) {
+    override fun getPlayers(): Collection<MatchService.Player> = transaction(database) {
         Player
             .find { Players.inMatch eq false }
-            .map { it.snowflake }
+            .map { MatchService.Player(it.snowflake, it.joined) }
     }
 
     override fun getNumPlayers() = transaction(database) {

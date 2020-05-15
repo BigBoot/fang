@@ -5,6 +5,7 @@ import de.bigboot.ggtools.fang.service.MatchService
 import de.bigboot.ggtools.fang.service.PermissionService
 import de.bigboot.ggtools.fang.utils.asReaction
 import de.bigboot.ggtools.fang.utils.formatCommandHelp
+import de.bigboot.ggtools.fang.utils.milliSecondsToTimespan
 import de.bigboot.ggtools.fang.utils.parseArgs
 import discord4j.core.GatewayDiscordClient
 import discord4j.core.`object`.entity.Message
@@ -28,6 +29,8 @@ import org.koin.core.KoinComponent
 import org.koin.core.inject
 import org.tinylog.Logger
 import reactor.core.publisher.Mono
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 import java.util.Optional
 import java.util.Timer
 import java.util.TimerTask
@@ -191,7 +194,10 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
                         embed.setTitle("Players waiting in queue")
                         val players = when {
                             matchService.getNumPlayers() == 0 -> "No one in queue ${Config.emojis.queue_empty}."
-                            else -> matchService.getPlayers().joinToString("\n") { it -> "<@$it>" }
+                            else -> matchService.getPlayers().joinToString("\n") { player ->
+                                val duration = ChronoUnit.MILLIS.between(Instant.ofEpochMilli(player.joined), Instant.now())
+                                    "<@${player.snowflake}> (In queue for ${duration.milliSecondsToTimespan()})"
+                            }
                         }
 
                         embed.setDescription("""

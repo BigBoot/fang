@@ -14,11 +14,16 @@ interface MatchService {
 
     fun pop(): Pop
 
-    fun getPlayers(): Collection<Long>
+    fun getPlayers(): Collection<Player>
 
     fun getNumPlayers(): Int
 
     fun isPlayerQueued(snowflake: Long): Boolean
+
+    data class Player(
+        val snowflake: Long,
+        val joined: Long
+    )
 
     data class Pop(
         val players: Collection<Long>,
