@@ -4,8 +4,8 @@ import de.bigboot.ggtools.fang.CommandContext
 import de.bigboot.ggtools.fang.CommandGroupBuilder
 import de.bigboot.ggtools.fang.CommandGroupSpec
 import de.bigboot.ggtools.fang.utils.findChannel
+import de.bigboot.ggtools.fang.utils.findMember
 import discord4j.rest.util.Snowflake
-import kotlinx.coroutines.reactive.awaitFirstOrNull
 import kotlinx.coroutines.reactive.awaitSingle
 
 class Queue : CommandGroupSpec("queue", "Commands for matchmaking") {
@@ -39,9 +39,7 @@ class Queue : CommandGroupSpec("queue", "Commands for matchmaking") {
             arg("player", "the player to kick")
 
             onCall {
-                val user = guild().members
-                    .filter { it.displayName == args["player"] }
-                    .awaitFirstOrNull()
+                val user = guild().findMember(args["player"])
 
                 if (user == null) {
                     channel().createEmbed { embed ->
