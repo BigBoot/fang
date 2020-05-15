@@ -1,13 +1,27 @@
 package de.bigboot.ggtools.fang.commands.queue
 
+import de.bigboot.ggtools.fang.CommandContext
 import de.bigboot.ggtools.fang.CommandGroupBuilder
 import de.bigboot.ggtools.fang.CommandGroupSpec
+import de.bigboot.ggtools.fang.utils.findChannel
 import discord4j.rest.util.Snowflake
 import kotlinx.coroutines.reactive.awaitFirstOrNull
 import kotlinx.coroutines.reactive.awaitSingle
 
 class Queue : CommandGroupSpec("queue", "Commands for matchmaking") {
+    val matchQueueMoved: suspend CommandContext.() -> Unit = {
+        val channelId = guild().findChannel("match-queue")
+        val channelText = channelId?.let { "<#$it>" } ?: "#match-queue"
+
+        channel().createMessage {
+            it.setContent("The queue has been moved to $channelText")
+        }.awaitSingle()
+    }
+
     override val build: CommandGroupBuilder.() -> Unit = {
+        command("join") { onCall(matchQueueMoved) }
+        command("leave") { onCall(matchQueueMoved) }
+
         command("show", "show players currently in the queue") {
             onCall {
                 channel().createMessage {
