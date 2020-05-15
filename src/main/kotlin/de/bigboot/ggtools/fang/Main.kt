@@ -17,7 +17,7 @@ suspend fun main() {
 
     Flyway
         .configure()
-        .locations(Fang::class.java.packageName.replace(".", "/"))
+        .locations(Fang::class.java.`package`.name.replace(".", "/"))
         .dataSource(Config.database.url, Config.database.user, Config.database.pass)
         .baselineVersion("0")
         .baselineOnMigrate(true)
