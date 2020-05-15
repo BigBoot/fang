@@ -5,7 +5,6 @@ import de.bigboot.ggtools.fang.db.Server
 import de.bigboot.ggtools.fang.db.Servers
 import okhttp3.OkHttpClient
 import org.jetbrains.exposed.sql.Database
-import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -19,11 +18,7 @@ class ServerServiceImpl : ServerService, KoinComponent {
     private val clients: MutableMap<String, ServerApi>
 
     init {
-        transaction(database) {
-            SchemaUtils.create(Servers)
-        }
-
-        clients = transaction {
+        clients = transaction(database) {
             Servers.selectAll().associate {
                 Pair(it[Servers.name].toLowerCase(), createClient(it[Servers.url], it[Servers.apiKey]))
             }.toMutableMap()

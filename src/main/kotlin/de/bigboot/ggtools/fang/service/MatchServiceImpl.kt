@@ -13,12 +13,6 @@ class MatchServiceImpl : MatchService, KoinComponent {
     private var force = false
     private var request: MatchService.Request? = null
 
-    init {
-        transaction(database) {
-            SchemaUtils.create(Players)
-        }
-    }
-
     override fun join(snowflake: Long): Boolean {
         transaction {
             val player = Player.find { Players.snowflake eq snowflake }.firstOrNull() ?: Player.new {
@@ -69,19 +63,19 @@ class MatchServiceImpl : MatchService, KoinComponent {
         return pop
     }
 
-    override fun getPlayers(): Collection<Long> = transaction {
+    override fun getPlayers(): Collection<Long> = transaction(database) {
         Player
             .find { Players.inMatch eq false }
             .map { it.snowflake }
     }
 
-    override fun getNumPlayers() = transaction {
+    override fun getNumPlayers() = transaction(database) {
         Player
             .find { Players.inMatch eq false }
             .count()
     }
 
-    override fun isPlayerQueued(snowflake: Long) = transaction {
+    override fun isPlayerQueued(snowflake: Long) = transaction(database) {
         !Player.find { Players.snowflake eq snowflake }.empty()
     }
 }
