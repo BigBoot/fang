@@ -17,8 +17,9 @@ suspend fun main() {
 
     Flyway
         .configure()
-        .locations("classpath:/de/bigboot/ggtools/fang")
+        .locations(Fang::class.java.packageName.replace(".", "/"))
         .dataSource(Config.database.url, Config.database.user, Config.database.pass)
+        .baselineVersion("0")
         .baselineOnMigrate(true)
         .load()
         .migrate()

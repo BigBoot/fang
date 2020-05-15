@@ -5,7 +5,7 @@ package de.bigboot.ggtools.fang.db.migrations
 import org.flywaydb.core.api.migration.BaseJavaMigration
 import org.flywaydb.core.api.migration.Context
 
-class V0_1__initial_database_schema : BaseJavaMigration() {
+class V1__initial_database_schema : BaseJavaMigration() {
     override fun migrate(context: Context) {
         context.connection.prepareStatement("""
         |create table if not exists `Groups`
