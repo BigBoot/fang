@@ -15,7 +15,7 @@ class Permissions : CommandGroupSpec("permissions", "Manage group permissions") 
                 val group = args["group"]
                 val permission = args["permission"]
 
-                if (group == Config.ADMIN_GROUP_NAME) {
+                if (group == Config.permissions.admin_group_name) {
                     channel().createEmbed { embed ->
                         embed.setDescription("The admin groups cannot be modified")
                     }.awaitSingle()
@@ -45,7 +45,7 @@ class Permissions : CommandGroupSpec("permissions", "Manage group permissions") 
                 val group = args["group"]
                 val permission = args["permission"]
 
-                if (group == Config.ADMIN_GROUP_NAME) {
+                if (group == Config.permissions.admin_group_name) {
                     channel().createEmbed { embed ->
                         embed.setDescription("The admin groups cannot be modified")
                     }.awaitSingle()

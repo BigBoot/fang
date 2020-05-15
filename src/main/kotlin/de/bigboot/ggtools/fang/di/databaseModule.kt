@@ -7,10 +7,10 @@ import org.koin.dsl.module
 val databaseModule = module {
     single {
         Database.connect(
-            url = Config.DB_URL,
-            driver = Config.DB_DRIVER,
-            user = Config.DB_USER,
-            password = Config.DB_PASS
+            url = Config.database.url,
+            driver = Config.database.driver,
+            user = Config.database.user,
+            password = Config.database.pass
         )
     }
 }

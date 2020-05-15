@@ -37,7 +37,7 @@ class MatchServiceImpl : MatchService, KoinComponent {
         }
     }
 
-    override fun canPop(): Boolean = force || request != null || getNumPlayers() >= Config.REQUIRED_PLAYERS
+    override fun canPop(): Boolean = force || request != null || getNumPlayers() >= Config.bot.required_players
 
     override fun force() {
         force = true
@@ -56,7 +56,7 @@ class MatchServiceImpl : MatchService, KoinComponent {
                     .find { Players.inMatch eq false }
                     .asSequence()
                     .sortedBy { it.joined }
-                    .take(Config.REQUIRED_PLAYERS)
+                    .take(Config.bot.required_players)
                     .onEach { it.inMatch = true }
                     .map { it.snowflake }
                     .toList()

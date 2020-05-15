@@ -54,7 +54,7 @@ class Group : de.bigboot.ggtools.fang.CommandGroupSpec("group", "Commands for ma
             onCall {
                 val group = args["group"]
 
-                if (group == Config.DEFAULT_GROUP_NAME || group == Config.ADMIN_GROUP_NAME) {
+                if (group == Config.permissions.default_group_name || group == Config.permissions.admin_group_name) {
                     channel().createEmbed { embed ->
                         embed.setDescription("The default and admin groups cannot be deleted")
                     }.awaitSingle()

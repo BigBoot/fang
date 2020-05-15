@@ -3,15 +3,14 @@ package de.bigboot.ggtools.fang
 import de.bigboot.ggtools.fang.commands.Root
 import de.bigboot.ggtools.fang.service.MatchService
 import de.bigboot.ggtools.fang.service.PermissionService
+import de.bigboot.ggtools.fang.utils.asReaction
 import de.bigboot.ggtools.fang.utils.formatCommandHelp
 import de.bigboot.ggtools.fang.utils.parseArgs
-import de.bigboot.ggtools.fang.utils.print
 import discord4j.core.GatewayDiscordClient
 import discord4j.core.`object`.entity.Message
 import discord4j.core.`object`.entity.channel.MessageChannel
 import discord4j.core.`object`.presence.Activity
 import discord4j.core.`object`.presence.Status
-import discord4j.core.`object`.reaction.ReactionEmoji
 import discord4j.core.event.domain.PresenceUpdateEvent
 import discord4j.core.event.domain.VoiceStateUpdateEvent
 import discord4j.core.event.domain.guild.GuildCreateEvent
@@ -49,7 +48,7 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
             override fun run() {
                 updateStatus()
             }
-        }, 0, Config.STATUSUPDATE_POLL_RATE)
+        }, 0, Config.bot.statusupdate_poll_rate)
 
         botId = runBlocking {
             client.selfId.awaitSingle()
@@ -60,7 +59,7 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
 
     private fun registerEventListeners() {
         client.eventDispatcher.on(MessageCreateEvent::class.java)
-            .filter { it.message.content.startsWith(Config.PREFIX) }
+            .filter { it.message.content.startsWith(Config.bot.prefix) }
             .flatMap { event ->
                 handleCommandEvent(event)
                     .onErrorResume { error ->
@@ -89,12 +88,12 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
             .subscribe()
 
         client.eventDispatcher.on(ReactionAddEvent::class.java)
-            .filter { it.emoji == EMOJI_MATCH_FINISHED }
+            .filter { it.emoji == Config.emojis.match_finished.asReaction() }
             .filterWhen {
                 mono {
                     val message = it.message.awaitSingle()
                     val userId = Snowflake.of(message.userData.id())
-                    userId == botId && message.getReactors(EMOJI_MATCH_FINISHED)
+                    userId == botId && message.getReactors(Config.emojis.match_finished.asReaction())
                         .any { it.id == botId }
                         .awaitSingle()
                 }
@@ -149,8 +148,8 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
                 it.setEmbed {}
             }.awaitSingle()
 
-            queueMsg.addReaction(EMOJI_JOIN_QUEUE).awaitFirstOrNull()
-            queueMsg.addReaction(EMOJI_LEAVE_QUEUE).awaitFirstOrNull()
+            queueMsg.addReaction(Config.emojis.join_queue.asReaction()).awaitFirstOrNull()
+            queueMsg.addReaction(Config.emojis.leave_queue.asReaction()).awaitFirstOrNull()
 
             queueChannel.createMessage {
                 @Suppress("MagicNumber")
@@ -169,37 +168,37 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
                 val channel = client.getChannelById(channelId).awaitSingle() as MessageChannel
                 val msg = client.getMessageById(channelId, msgId).awaitSingle()
 
-                msg.getReactors(EMOJI_JOIN_QUEUE)
+                msg.getReactors(Config.emojis.join_queue.asReaction())
                     .filter { it.id != botId }
                     .collectList()
                     .awaitSingle()
                     .forEach { user ->
                         matchService.join(user.id.asLong())
-                        msg.removeReaction(EMOJI_JOIN_QUEUE, user.id).awaitFirstOrNull()
+                        msg.removeReaction(Config.emojis.join_queue.asReaction(), user.id).awaitFirstOrNull()
                     }
 
-                msg.getReactors(EMOJI_LEAVE_QUEUE)
+                msg.getReactors(Config.emojis.leave_queue.asReaction())
                     .filter { it.id != botId }
                     .collectList()
                     .awaitSingle()
                     .forEach { user ->
                         matchService.leave(user.id.asLong())
-                        msg.removeReaction(EMOJI_LEAVE_QUEUE, user.id).awaitFirstOrNull()
+                        msg.removeReaction(Config.emojis.leave_queue.asReaction(), user.id).awaitFirstOrNull()
                     }
 
                 msg.edit { edit ->
                     edit.setEmbed { embed ->
                         embed.setTitle("Players waiting in queue")
                         val players = when {
-                            matchService.getNumPlayers() == 0 -> "No one in queue ${EMOJI_QUEUE_EMPTY.print()}."
+                            matchService.getNumPlayers() == 0 -> "No one in queue ${Config.emojis.queue_empty}."
                             else -> matchService.getPlayers().joinToString("\n") { it -> "<@$it>" }
                         }
 
                         embed.setDescription("""
                         | $players
                         | 
-                        | Use ${EMOJI_JOIN_QUEUE.print()} to join the queue.
-                        | Use ${EMOJI_LEAVE_QUEUE.print()} to leave the queue.   
+                        | Use ${Config.emojis.join_queue} to join the queue.
+                        | Use ${Config.emojis.leave_queue} to leave the queue.   
                         """.trimMargin())
                     }
                 }.awaitSingle()
@@ -219,9 +218,9 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
         val msg = event.message
         val text = msg.content.toLowerCase()
 
-        val args = parseArgs(text.substring(Config.PREFIX.length)).iterator()
+        val args = parseArgs(text.substring(Config.bot.prefix.length)).iterator()
 
-        val sudo = msg.content.startsWith("${Config.PREFIX}sudo") &&
+        val sudo = msg.content.startsWith("${Config.bot.prefix}sudo") &&
                 client.applicationInfo.awaitSingle().ownerId == Snowflake.of(msg.userData.id())
 
         if (sudo && args.hasNext()) {
@@ -290,25 +289,25 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
         val pop = matchService.pop()
         val players = pop.players
         val canDeny = pop.request != null
-        val requiredPlayers = pop.request?.minPlayers ?: Config.REQUIRED_PLAYERS
+        val requiredPlayers = pop.request?.minPlayers ?: Config.bot.required_players
 
         val message = channel.createMessage {
             it.setContent(players.joinToString(" ") { player -> "<@$player>" })
         }.awaitSingle()
 
-        message.addReaction(EMOJI_ACCEPT).awaitFirstOrNull()
+        message.addReaction(Config.emojis.accept.asReaction()).awaitFirstOrNull()
 
         if (canDeny) {
-            message.addReaction(EMOJI_DENY).awaitFirstOrNull()
+            message.addReaction(Config.emojis.deny.asReaction()).awaitFirstOrNull()
         }
 
         val content = when {
             pop.request != null -> "A ${pop.request.minPlayers} player match has been requested by <@${pop.request.player}>." +
-                    "Please react with a ${EMOJI_ACCEPT.print()} to accept the match. If you want to deny the match please react with a ${EMOJI_DENY.print()}. " +
-                    "You have ${Config.ACCEPT_TIMEOUT} seconds to accept or deny, otherwise you will be removed from the queue."
+                    "Please react with a ${Config.emojis.accept} to accept the match. If you want to deny the match please react with a ${Config.emojis.deny}. " +
+                    "You have ${Config.bot.accept_timeout} seconds to accept or deny, otherwise you will be removed from the queue."
 
-            else -> "A match is ready, please react with a ${EMOJI_ACCEPT.print()}} to accept the match. " +
-                    "You have ${Config.ACCEPT_TIMEOUT} seconds to accept, otherwise you will be removed from the queue."
+            else -> "A match is ready, please react with a ${Config.emojis.accept} to accept the match. " +
+                    "You have ${Config.bot.accept_timeout} seconds to accept, otherwise you will be removed from the queue."
         }
 
         val (missing, accepted, denied) = waitForQueuePopResponses(message, pop, content)
@@ -317,13 +316,13 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
             message.edit {
                 it.setEmbed { embed ->
                     embed.setTitle("Match ready!")
-                    embed.setDescription("Everybody get ready, you've got a match.\nHave fun!\n\nPlease react with a ${EMOJI_MATCH_FINISHED.print()} after the match is finished to get added back to the queue.")
+                    embed.setDescription("Everybody get ready, you've got a match.\nHave fun!\n\nPlease react with a ${Config.emojis.match_finished} after the match is finished to get added back to the queue.")
                     embed.addField("Players", players.joinToString(" ") { "<@$it>" }, true)
                 }
             }.awaitSingle()
 
             message.removeAllReactions().awaitFirstOrNull()
-            message.addReaction(EMOJI_MATCH_FINISHED).awaitFirstOrNull()
+            message.addReaction(Config.emojis.match_finished.asReaction()).awaitFirstOrNull()
         } else {
             message.edit {
                 it.setEmbed { embed ->
@@ -363,21 +362,21 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
     )
 
     private suspend fun waitForQueuePopResponses(message: Message, pop: MatchService.Pop, messageContent: String): PopResonse {
-        val endTime = System.currentTimeMillis() + (Config.ACCEPT_TIMEOUT * 1000L)
+        val endTime = System.currentTimeMillis() + (Config.bot.accept_timeout * 1000L)
         val missing = HashSet(pop.players)
         val accepted = HashSet<Long>()
         val denied = HashSet<Long>()
-        val requiredPlayers = pop.request?.minPlayers ?: Config.REQUIRED_PLAYERS
+        val requiredPlayers = pop.request?.minPlayers ?: Config.bot.required_players
 
         while (true) {
-            message.getReactors(EMOJI_ACCEPT)
+            message.getReactors(Config.emojis.accept.asReaction())
                 .filter { missing.contains(it.id.asLong()) }
                 .collectList()
                 .awaitSingle()
                 .onEach { accepted.add(it.id.asLong()) }
                 .onEach { missing.remove(it.id.asLong()) }
 
-            message.getReactors(EMOJI_DENY)
+            message.getReactors(Config.emojis.deny.asReaction())
                 .filter { missing.contains(it.id.asLong()) }
                 .collectList()
                 .awaitSingle()
@@ -529,19 +528,5 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
             "Vodens tail",
             "Pakkos toys"
         )
-
-        val EMOJI_ACCEPT = ReactionEmoji.custom(Snowflake.of("630950806430023701"), "ReadyScrollEmote", true)
-        val EMOJI_DENY = ReactionEmoji.unicode("\uD83D\uDC4E")
-        val EMOJI_MATCH_FINISHED = ReactionEmoji.custom(Snowflake.of("632026748946481162"), "GG", false)
-        val EMOJI_QUEUE_EMPTY = ReactionEmoji.custom(Snowflake.of("631489587092520980"), "FeelsWuMan", false)
-        val EMOJI_JOIN_QUEUE = ReactionEmoji.custom(Snowflake.of("630952770694021130"), "GiganticHeart", false)
-        val EMOJI_LEAVE_QUEUE = ReactionEmoji.custom(Snowflake.of("631660093108256768"), "GiganticBrokenHeart", false)
-
-//        val EMOJI_ACCEPT = ReactionEmoji.unicode("\uD83D\uDC4D")
-//        val EMOJI_DENY = ReactionEmoji.unicode("\uD83D\uDC4E")
-//        val EMOJI_MATCH_FINISHED = ReactionEmoji.unicode("\uD83C\uDFC1")
-//        val EMOJI_QUEUE_EMPTY = ReactionEmoji.unicode("\uD83D\uDE22")
-//        val EMOJI_JOIN_QUEUE = ReactionEmoji.unicode("\uD83D\uDC4D")
-//        val EMOJI_LEAVE_QUEUE = ReactionEmoji.unicode("\uD83D\uDC4E")
     }
 }

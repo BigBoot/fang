@@ -12,16 +12,7 @@ import org.koin.core.logger.MESSAGE
 import org.tinylog.kotlin.Logger
 
 suspend fun main() {
-    val configExceptions = Config.exceptions()
-
-    if (configExceptions.isNotEmpty()) {
-        configExceptions.forEach {
-            Logger.error { it.message }
-        }
-        return
-    }
-
-    org.tinylog.configuration.Configuration.set("level", Config.LOG_LEVEL)
+    org.tinylog.configuration.Configuration.set("level", Config.bot.log_level)
 
     startKoin {
         logger(object : org.koin.core.logger.Logger() {
@@ -42,7 +33,7 @@ suspend fun main() {
         )
     }
 
-    val client = DiscordClient.create(Config.BOT_TOKEN).login().awaitSingle()
+    val client = DiscordClient.create(Config.bot.token).login().awaitSingle()
 
     Fang(client).run()
 }

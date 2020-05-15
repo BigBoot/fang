@@ -1,112 +1,56 @@
+@file:Suppress("ConstructorParameterNaming")
+
 package de.bigboot.ggtools.fang
 
+import com.squareup.moshi.JsonClass
+import com.squareup.moshi.Moshi
 import org.tomlj.Toml
-import org.tomlj.TomlParseResult
-import org.tomlj.TomlTable
 import java.nio.file.Paths
-import kotlin.collections.ArrayList
-import kotlin.properties.ReadOnlyProperty
-import kotlin.reflect.KProperty
 
-sealed class ConfigException(override val message: String, cause: Throwable? = null) : Exception(message, cause) {
-    class ConfigMissingException(key: String) :
-        ConfigException("Missing config value: $key")
+@JsonClass(generateAdapter = true)
+data class EmojisConfig(
+    val accept: String = "\uD83D\uDC4D",
+    val deny: String = "\uD83D\uDC4E",
+    val match_finished: String = "\uD83C\uDFC1",
+    val queue_empty: String = "\uD83D\uDE22",
+    val join_queue: String = "\uD83D\uDC4D",
+    val leave_queue: String = "\uD83D\uDC4E"
+)
 
-    class ConfigValueException(key: String, expected: Class<*>, actual: Class<*>) :
-        ConfigException("Invalid config value: $key (expected ${expected.simpleName}, got ${actual.simpleName})")
-}
+@JsonClass(generateAdapter = true)
+data class DatabaseConfig(
+    val driver: String = "org.h2.Driver",
+    val url: String = "jdbc:h2:./fang",
+    val user: String = "",
+    val pass: String = ""
+)
 
-class ExceptionProperty<T>(private val ex: ConfigException) : ReadOnlyProperty<Any, T> {
-    override fun getValue(thisRef: Any, property: KProperty<*>): T {
-        throw ex
-    }
-}
+@JsonClass(generateAdapter = true)
+data class BotConfig(
+    val token: String,
+    val prefix: String = "!",
+    val accept_timeout: Int = 120,
+    val statusupdate_poll_rate: Long = 2000L,
+    val required_players: Int = 10,
+    val log_level: String = "info"
+)
 
-class ValuePropery<T>(private val value: T) : ReadOnlyProperty<Any, T> {
-    override fun getValue(thisRef: Any, property: KProperty<*>): T {
-        return value
-    }
-}
+@JsonClass(generateAdapter = true)
+data class PermissionConfig(
+    val default_group_name: String = "default",
+    val default_group_permissions: List<String> = listOf(),
+    val admin_group_name: String = "admin",
+    val admin_group_permissions: List<String> = listOf("*")
+)
 
-private open class PropertyFactory<T>(private val config: TomlTable, private val returnType: Class<T>) {
-    protected fun getValue(key: String): T? {
-        val any = config.get(key)
+@JsonClass(generateAdapter = true)
+data class RootConfig(
+    val bot: BotConfig,
+    val database: DatabaseConfig = DatabaseConfig(),
+    val emojis: EmojisConfig = EmojisConfig(),
+    val permissions: PermissionConfig = PermissionConfig()
+)
 
-        if (any != null && !returnType.isAssignableFrom(any.javaClass)) {
-            throw ConfigException.ConfigValueException(
-                key,
-                returnType,
-                any.javaClass
-            )
-        }
-
-        @Suppress("UNCHECKED_CAST")
-        return any as T?
-    }
-}
-
-private class RequiredDelegateProvider<T>(config: TomlTable, returnType: Class<T>, private val handler: (ConfigException) -> Unit) : PropertyFactory<T>(config, returnType) {
-    operator fun provideDelegate(thisRef: Any, prop: KProperty<*>): ReadOnlyProperty<Any, T> {
-        val key = prop.name.toLowerCase()
-        return try {
-            ValuePropery(
-                getValue(key)
-                    ?: throw ConfigException.ConfigMissingException(key)
-            )
-        } catch (ex: ConfigException) {
-            handler(ex)
-            ExceptionProperty(ex)
-        }
-    }
-}
-
-private class OptionalDelegateProvider<T>(config: TomlTable, returnType: Class<T>, private val default: T, private val handler: (ConfigException) -> Unit) : PropertyFactory<T>(config, returnType) {
-    operator fun provideDelegate(thisRef: Any, prop: KProperty<*>): ReadOnlyProperty<Any, T> {
-        val key = prop.name.toLowerCase()
-        return try {
-            ValuePropery(getValue(key) ?: default)
-        } catch (ex: ConfigException) {
-            handler(ex)
-            ExceptionProperty(ex)
-        }
-    }
-}
-
-@Suppress("MagicNumber")
-object Config {
-    private val toml: TomlParseResult = Toml.parse(Paths.get("config.toml"))
-    private val exceptions: ArrayList<ConfigException> = ArrayList()
-
-    private inline fun <reified T> required() = RequiredDelegateProvider(
-        toml,
-        T::class.java
-    ) {
-        exceptions.add(it)
-    }
-
-    private inline fun <reified T> optional(default: T) =
-        OptionalDelegateProvider(
-            toml,
-            T::class.java,
-            default
-        ) {
-            exceptions.add(it)
-        }
-
-    fun exceptions() = exceptions
-
-    val BOT_TOKEN: String by required()
-    val PREFIX: String by optional("!")
-    val DB_DRIVER: String by optional("org.h2.Driver")
-    val DB_URL: String by optional("jdbc:h2:./fang")
-    val DB_USER: String by optional("")
-    val DB_PASS: String by optional("")
-    val DEFAULT_GROUP_NAME: String by optional("default")
-    val DEFAULT_GROUP_PERMISSIONS: List<String> by optional(listOf())
-    val ADMIN_GROUP_NAME: String by optional("admin")
-    val ADMIN_GROUP_PERMISSIONS: List<String> by optional(listOf("*"))
-    val ACCEPT_TIMEOUT: Int by optional(120)
-    val STATUSUPDATE_POLL_RATE: Long by optional(2000L)
-    val REQUIRED_PLAYERS: Int by optional(10)
-    val LOG_LEVEL: String by optional("info")
-}
+private val moshi = Moshi.Builder().build()
+private val toml = Toml.parse(Paths.get("config.toml"))
+val Config = moshi.adapter(RootConfig::class.java).fromJson(toml.toJson())!!

@@ -15,11 +15,11 @@ class PermissionServiceImpl : PermissionService, KoinComponent {
         transaction(database) {
             SchemaUtils.create(Groups, GroupPermissions, Users, UsersGroups)
 
-            if (Group.find { Groups.name eq Config.DEFAULT_GROUP_NAME }.empty()) {
+            if (Group.find { Groups.name eq Config.permissions.default_group_name }.empty()) {
                 val defaultGroup = Group.new(UUID.randomUUID()) {
-                    name = Config.DEFAULT_GROUP_NAME
+                    name = Config.permissions.default_group_name
                 }
-                Config.DEFAULT_GROUP_PERMISSIONS.forEach {
+                Config.permissions.default_group_permissions.forEach {
                     GroupPermission.new {
                         permission = it
                         group = defaultGroup
@@ -27,11 +27,11 @@ class PermissionServiceImpl : PermissionService, KoinComponent {
                 }
             }
 
-            if (Group.find { Groups.name eq Config.ADMIN_GROUP_NAME }.empty()) {
+            if (Group.find { Groups.name eq Config.permissions.admin_group_name }.empty()) {
                 val defaultGroup = Group.new(UUID.randomUUID()) {
-                    name = Config.ADMIN_GROUP_NAME
+                    name = Config.permissions.admin_group_name
                 }
-                Config.ADMIN_GROUP_PERMISSIONS.forEach {
+                Config.permissions.admin_group_permissions.forEach {
                     GroupPermission.new {
                         permission = it
                         group = defaultGroup
@@ -127,7 +127,7 @@ class PermissionServiceImpl : PermissionService, KoinComponent {
             ?.toList()
             ?: emptyList())
             .plusElement(Pair("default", Group
-                .find { Groups.name eq Config.DEFAULT_GROUP_NAME }
+                .find { Groups.name eq Config.permissions.default_group_name }
                 .first()
                 .permissions
                 .map { it.permission }
