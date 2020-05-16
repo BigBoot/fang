@@ -159,7 +159,7 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
                 it.setContent("-".repeat(32))
             }.awaitSingle()
 
-            CoroutineScope(Executors.newSingleThreadExecutor().asCoroutineDispatcher()).launch {
+            CoroutineScope(Dispatchers.Default).launch {
                 queueMessageUpdateLoop(queueChannel.id, queueMsg.id)
             }
         }
@@ -202,7 +202,7 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
                 }.awaitSingle()
 
                 if (matchService.canPop()) {
-                    handleQueuePop(channel)
+                    handleQueuePop(matchService.pop(), channel)
                 }
 
                 @Suppress("MagicNumber")
@@ -283,9 +283,8 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
         return null
     }
 
-    private suspend fun handleQueuePop(channel: MessageChannel) {
-        val pop = matchService.pop()
-        val players = pop.players
+    private suspend fun handleQueuePop(pop: MatchService.Pop, channel: MessageChannel) {
+        val players = pop.players + pop.previousPlayers
         val canDeny = pop.request != null
         val requiredPlayers = pop.request?.minPlayers ?: Config.bot.required_players
 
@@ -310,27 +309,38 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
 
         val (missing, accepted, denied) = waitForQueuePopResponses(message, pop, content)
 
-        if (accepted.count() >= requiredPlayers) {
-            message.edit {
-                it.setEmbed { embed ->
-                    embed.setTitle("Match ready!")
-                    embed.setDescription("Everybody get ready, you've got a match.\nHave fun!\n\nPlease react with a ${Config.emojis.match_finished} after the match is finished to get added back to the queue.")
-                    embed.addField("Players", players.joinToString(" ") { "<@$it>" }, true)
-                }
-            }.awaitSingle()
+        when {
+            accepted.count() >= requiredPlayers -> {
+                message.edit {
+                    it.setEmbed { embed ->
+                        embed.setTitle("Match ready!")
+                        embed.setDescription("Everybody get ready, you've got a match.\nHave fun!\n\nPlease react with a ${Config.emojis.match_finished} after the match is finished to get added back to the queue.")
+                        embed.addField("Players", players.joinToString(" ") { "<@$it>" }, true)
+                    }
+                }.awaitSingle()
 
-            message.removeAllReactions().awaitFirstOrNull()
-            message.addReaction(Config.emojis.match_finished.asReaction()).awaitFirstOrNull()
-        } else {
-            message.edit {
-                it.setEmbed { embed ->
-                    embed.setTitle("Match Cancelled!")
-                    embed.setDescription("Not enough players accepted the match")
-                }
-            }.awaitSingle()
+                message.removeAllReactions().awaitFirstOrNull()
 
-            for (player in accepted) {
-                matchService.join(player)
+                delay(2 * 60 * 60 * 1000)
+
+                message.addReaction(Config.emojis.match_finished.asReaction()).awaitFirstOrNull()
+            }
+            matchService.getNumPlayers() + accepted.size >= requiredPlayers -> {
+                val repop = matchService.pop(accepted)
+                message.delete().awaitFirstOrNull()
+                handleQueuePop(repop, channel)
+            }
+            else -> {
+                message.edit {
+                    it.setEmbed { embed ->
+                        embed.setTitle("Match Cancelled!")
+                        embed.setDescription("Not enough players accepted the match")
+                    }
+                }.awaitSingle()
+
+                for (player in accepted) {
+                    matchService.join(player)
+                }
             }
         }
 
@@ -362,7 +372,7 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
     private suspend fun waitForQueuePopResponses(message: Message, pop: MatchService.Pop, messageContent: String): PopResonse {
         val endTime = System.currentTimeMillis() + (Config.bot.accept_timeout * 1000L)
         val missing = HashSet(pop.players)
-        val accepted = HashSet<Long>()
+        val accepted = HashSet(pop.previousPlayers)
         val denied = HashSet<Long>()
         val requiredPlayers = pop.request?.minPlayers ?: Config.bot.required_players
 

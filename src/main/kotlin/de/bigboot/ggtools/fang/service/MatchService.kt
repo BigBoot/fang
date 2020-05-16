@@ -12,7 +12,7 @@ interface MatchService {
 
     fun request(player: Long, minPlayers: Int)
 
-    fun pop(): Pop
+    fun pop(previousPlayers: Collection<Long> = emptyList()): Pop
 
     fun getPlayers(): Collection<Player>
 
@@ -30,7 +30,8 @@ interface MatchService {
     data class Pop(
         val players: Collection<Long>,
         val forced: Boolean,
-        val request: Request?
+        val request: Request?,
+        val previousPlayers: Collection<Long> = emptyList()
     )
 
     data class Request(

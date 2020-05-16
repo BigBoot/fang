@@ -44,7 +44,7 @@ class MatchServiceImpl : MatchService, KoinComponent {
         request = MatchService.Request(player, minPlayers)
     }
 
-    override fun pop(): MatchService.Pop {
+    override fun pop(previousPlayers: Collection<Long>): MatchService.Pop {
         val pop = MatchService.Pop(
             forced = force,
             request = request,
@@ -53,11 +53,12 @@ class MatchServiceImpl : MatchService, KoinComponent {
                     .find { Players.inMatch eq false }
                     .asSequence()
                     .sortedBy { it.joined }
-                    .take(Config.bot.required_players)
+                    .take(kotlin.math.max(0, Config.bot.required_players - previousPlayers.size) )
                     .onEach { it.inMatch = true }
                     .map { it.snowflake }
                     .toList()
-            }
+            },
+            previousPlayers = previousPlayers
         )
 
         force = false
