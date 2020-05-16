@@ -20,6 +20,8 @@ interface MatchService {
 
     fun isPlayerQueued(snowflake: Long): Boolean
 
+    fun printQueue(): String
+
     data class Player(
         val snowflake: Long,
         val joined: Long

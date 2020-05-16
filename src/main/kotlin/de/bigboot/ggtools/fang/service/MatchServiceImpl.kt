@@ -3,10 +3,13 @@ package de.bigboot.ggtools.fang.service
 import de.bigboot.ggtools.fang.Config
 import de.bigboot.ggtools.fang.db.Player
 import de.bigboot.ggtools.fang.db.Players
+import de.bigboot.ggtools.fang.utils.milliSecondsToTimespan
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.koin.core.KoinComponent
 import org.koin.core.inject
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 
 class MatchServiceImpl : MatchService, KoinComponent {
     private val database: Database by inject()
@@ -78,4 +81,13 @@ class MatchServiceImpl : MatchService, KoinComponent {
     override fun isPlayerQueued(snowflake: Long) = transaction(database) {
         !Player.find { Players.snowflake eq snowflake }.empty()
     }
+
+    override fun printQueue(): String = when {
+        getNumPlayers() == 0 -> "No one in queue ${Config.emojis.queue_empty}."
+        else -> getPlayers().sortedBy { it.joined }.joinToString("\n") { player ->
+            val duration = ChronoUnit.MILLIS.between(Instant.ofEpochMilli(player.joined), Instant.now())
+            "<@${player.snowflake}> (In queue for ${duration.milliSecondsToTimespan()})"
+        }
+    }
 }
+

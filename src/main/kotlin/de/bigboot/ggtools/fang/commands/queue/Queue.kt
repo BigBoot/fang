@@ -26,10 +26,8 @@ class Queue : CommandGroupSpec("queue", "Commands for matchmaking") {
             onCall {
                 channel().createMessage {
                     it.setEmbed { embed ->
-                        embed.setTitle("Players waiting in queue")
-                        embed.setDescription(matchService.getPlayers().joinToString("\n") { player ->
-                            "<@$player>"
-                        })
+                        embed.setTitle("${matchService.getNumPlayers()} players waiting in queue")
+                        embed.setDescription(matchService.printQueue())
                     }
                 }.awaitSingle()
             }
