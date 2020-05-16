@@ -321,9 +321,15 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
 
                 message.removeAllReactions().awaitFirstOrNull()
 
-                delay(2 * 60 * 60 * 1000)
+                val msgId = message.id
+                val channelId = message.channelId
+                CoroutineScope(Dispatchers.Default).launch {
+                    delay(2 * 60 * 1000)
+                    client.getMessageById(channelId, msgId).awaitFirstOrNull()
+                        ?.addReaction(Config.emojis.match_finished.asReaction())
+                        ?.awaitFirstOrNull()
+                }
 
-                message.addReaction(Config.emojis.match_finished.asReaction()).awaitFirstOrNull()
             }
             matchService.getNumPlayers() + accepted.size >= requiredPlayers -> {
                 val repop = matchService.pop(accepted)
