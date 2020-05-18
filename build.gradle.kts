@@ -84,9 +84,17 @@ tasks.withType<Test> {
 tasks {
     compileKotlin {
         kotlinOptions.jvmTarget = JavaVersion.VERSION_1_8.toString()
+        kotlinOptions.freeCompilerArgs = listOf(
+            "-Xopt-in=kotlin.time.ExperimentalTime",
+            "-Xopt-in=kotlinx.coroutines.ExperimentalCoroutinesApi"
+        )
     }
     compileTestKotlin {
         kotlinOptions.jvmTarget = JavaVersion.VERSION_1_8.toString()
+        kotlinOptions.freeCompilerArgs = listOf(
+            "-Xopt-in=kotlin.time.ExperimentalTime",
+            "-Xopt-in=kotlinx.coroutines.ExperimentalCoroutinesApi"
+        )
     }
 }
 

@@ -5,6 +5,7 @@ import de.bigboot.ggtools.fang.CommandGroupSpec
 import de.bigboot.ggtools.fang.api.model.AdminPWRequest
 import de.bigboot.ggtools.fang.api.model.KillRequest
 import de.bigboot.ggtools.fang.api.model.StartRequest
+import de.bigboot.ggtools.fang.utils.orNull
 import discord4j.core.`object`.reaction.ReactionEmoji
 import kotlinx.coroutines.reactive.awaitFirstOrNull
 import kotlinx.coroutines.reactive.awaitSingle
@@ -165,7 +166,7 @@ class Server : CommandGroupSpec("server", "Commands for controlling servers") {
                     return@onCall
                 }
 
-                val privateMessage = message.author.orElse(null)
+                val privateMessage = message.author.orNull()
                     ?.privateChannel
                     ?.awaitSingle()
                     ?.createMessage {

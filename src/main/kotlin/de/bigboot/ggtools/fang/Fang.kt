@@ -3,10 +3,7 @@ package de.bigboot.ggtools.fang
 import de.bigboot.ggtools.fang.commands.Root
 import de.bigboot.ggtools.fang.service.MatchService
 import de.bigboot.ggtools.fang.service.PermissionService
-import de.bigboot.ggtools.fang.utils.asReaction
-import de.bigboot.ggtools.fang.utils.formatCommandHelp
-import de.bigboot.ggtools.fang.utils.milliSecondsToTimespan
-import de.bigboot.ggtools.fang.utils.parseArgs
+import de.bigboot.ggtools.fang.utils.*
 import discord4j.core.GatewayDiscordClient
 import discord4j.core.`object`.entity.Message
 import discord4j.core.`object`.entity.channel.MessageChannel
@@ -21,21 +18,19 @@ import discord4j.discordjson.json.ActivityUpdateRequest
 import discord4j.discordjson.json.gateway.StatusUpdate
 import discord4j.rest.util.Snowflake
 import kotlinx.coroutines.*
-import kotlinx.coroutines.reactive.awaitFirst
-import kotlinx.coroutines.reactive.awaitFirstOrNull
-import kotlinx.coroutines.reactive.awaitSingle
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.reactor.mono
 import org.koin.core.KoinComponent
 import org.koin.core.inject
 import org.tinylog.Logger
 import reactor.core.publisher.Mono
-import java.time.Instant
-import java.time.temporal.ChronoUnit
+import java.lang.RuntimeException
 import java.util.Optional
 import java.util.Timer
 import java.util.TimerTask
-import java.util.concurrent.Executors
 import kotlin.math.max
+import kotlin.time.Duration
+import kotlin.time.minutes
 
 class Fang(private val client: GatewayDiscordClient) : KoinComponent {
     private val botId: Snowflake
@@ -61,79 +56,37 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
     }
 
     private fun registerEventListeners() {
-        client.eventDispatcher.on(MessageCreateEvent::class.java)
+        client.eventDispatcher.on<MessageCreateEvent>()
             .filter { it.message.content.startsWith(Config.bot.prefix) }
-            .flatMap { event ->
-                handleCommandEvent(event)
-                    .onErrorResume { error ->
-                        // log and then discard the error to keep the sequence alive
-                        Logger.warn(error)
-                        Mono.empty()
-                    }
-            }
-            .subscribe()
+            .onEachSafe(this::handleCommandEvent)
+            .launch()
 
-        client.eventDispatcher.on(VoiceStateUpdateEvent::class.java)
+        client.eventDispatcher.on<VoiceStateUpdateEvent>()
             .filter { !it.old.isPresent }
-            .filterWhen {
-                mono {
-                    it.current.channel.awaitFirstOrNull()?.name == "Match Hub"
-                }
-            }
-            .flatMap { event ->
-                handleMatchHubJoined(event)
-                    .onErrorResume { error ->
-                        // log and then discard the error to keep the sequence alive
-                        Logger.warn(error)
-                        Mono.empty()
-                    }
-            }
-            .subscribe()
+            .filter { it.current.channel.await()?.name == "Match Hub" }
+            .onEachSafe(this::handleMatchHubJoined)
+            .launch()
 
-        client.eventDispatcher.on(ReactionAddEvent::class.java)
+        client.eventDispatcher.on<ReactionAddEvent>()
             .filter { it.emoji == Config.emojis.match_finished.asReaction() }
-            .filterWhen {
-                mono {
-                    val message = it.message.awaitSingle()
-                    val userId = Snowflake.of(message.userData.id())
-                    userId == botId && message.getReactors(Config.emojis.match_finished.asReaction())
-                        .any { it.id == botId }
-                        .awaitSingle()
-                }
-            }
-            .flatMap { event ->
-                handleReactMatchFinished(event)
-                    .onErrorResume { error ->
-                        // log and then discard the error to keep the sequence alive
-                        Logger.warn(error)
-                        Mono.empty()
-                    }
-            }
-            .subscribe()
+            .filter { it.message.awaitSingle().run {
+                isFromSelf() && hasReacted(Config.emojis.match_finished.asReaction())
+            } }
+            .onEachSafe(this::handleReactMatchFinished)
+            .launch()
 
-        client.eventDispatcher.on(PresenceUpdateEvent::class.java)
-            .filter { it.current.status == Status.OFFLINE && matchService.isPlayerQueued(it.userId.asLong()) }
-            .doOnNext { matchService.leave(it.userId.asLong()) }
-            .subscribe()
+        client.eventDispatcher.on<GuildCreateEvent>()
+            .onEachSafe(this::handleGuildCreateEvent)
+            .launch()
 
-        client.eventDispatcher.on(GuildCreateEvent::class.java)
-            .flatMap { event ->
-                handleGuildCreateEvent(event)
-                    .onErrorResume { error ->
-                        // log and then discard the error to keep the sequence alive
-                        Logger.warn(error)
-                        Mono.empty()
-                    }
-            }
-            .subscribe()
     }
 
-    private fun handleGuildCreateEvent(event: GuildCreateEvent) = mono {
+    private suspend fun handleGuildCreateEvent(event: GuildCreateEvent) {
         Logger.info { "Joined Guild: ${event.guild.name}" }
 
         val queueChannel = event.guild.channels
-            .filter { it.name == "match-queue" }
-            .awaitFirstOrNull() as? MessageChannel
+            .flow()
+            .firstOrNull { it.name == "match-queue" } as? MessageChannel
 
         if (queueChannel != null) {
             Logger.info { "Found queue channel! Starting cleanup!" }
@@ -151,8 +104,8 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
                 it.setEmbed {}
             }.awaitSingle()
 
-            queueMsg.addReaction(Config.emojis.join_queue.asReaction()).awaitFirstOrNull()
-            queueMsg.addReaction(Config.emojis.leave_queue.asReaction()).awaitFirstOrNull()
+            queueMsg.addReaction(Config.emojis.join_queue.asReaction()).await()
+            queueMsg.addReaction(Config.emojis.leave_queue.asReaction()).await()
 
             queueChannel.createMessage {
                 @Suppress("MagicNumber")
@@ -172,22 +125,31 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
                 val msg = client.getMessageById(channelId, msgId).awaitSingle()
 
                 msg.getReactors(Config.emojis.join_queue.asReaction())
-                    .filter { it.id != botId }
-                    .collectList()
-                    .awaitSingle()
-                    .forEach { user ->
+                    .flow()
+                    .filter { !it.isSelf() }
+                    .onEachSafe { user ->
                         matchService.join(user.id.asLong())
-                        msg.removeReaction(Config.emojis.join_queue.asReaction(), user.id).awaitFirstOrNull()
+                        msg.removeReaction(Config.emojis.join_queue.asReaction(), user.id).await()
                     }
+                    .collect()
+
+                msg.getReactors(Config.emojis.join_queue.asReaction())
+                    .flow()
+                    .filter { !it.isSelf() }
+                    .onEachSafe { user ->
+                        matchService.join(user.id.asLong())
+                        msg.removeReaction(Config.emojis.join_queue.asReaction(), user.id).await()
+                    }
+                    .collect()
 
                 msg.getReactors(Config.emojis.leave_queue.asReaction())
-                    .filter { it.id != botId }
-                    .collectList()
-                    .awaitSingle()
-                    .forEach { user ->
+                    .flow()
+                    .filter { !it.isSelf() }
+                    .onEachSafe { user ->
                         matchService.leave(user.id.asLong())
-                        msg.removeReaction(Config.emojis.leave_queue.asReaction(), user.id).awaitFirstOrNull()
+                        msg.removeReaction(Config.emojis.leave_queue.asReaction(), user.id).await()
                     }
+                    .collect()
 
                 msg.edit { edit ->
                     edit.setEmbed { embed ->
@@ -212,7 +174,7 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
         }
     }
 
-    private fun handleCommandEvent(event: MessageCreateEvent) = mono {
+    private suspend fun handleCommandEvent(event: MessageCreateEvent) {
         val msg = event.message
         val text = msg.content.toLowerCase()
 
@@ -233,9 +195,9 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
         if (command == null) {
             msg.channel.awaitSingle().createEmbed { embed ->
                 embed.setDescription("Unknown command: $text")
-            }.awaitFirst()
+            }.awaitSingle()
 
-            return@mono
+            return
         }
 
         val namespace = command.namespace
@@ -254,9 +216,9 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
         if (!hasPermission) {
             msg.channel.awaitSingle().createEmbed { embed ->
                 embed.setDescription("You do not have permissions to use this command")
-            }.awaitFirst()
+            }.awaitSingle()
 
-            return@mono
+            return
         }
 
         when (command) {
@@ -292,10 +254,10 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
             it.setContent(players.joinToString(" ") { player -> "<@$player>" })
         }.awaitSingle()
 
-        message.addReaction(Config.emojis.accept.asReaction()).awaitFirstOrNull()
+        message.addReaction(Config.emojis.accept.asReaction()).await()
 
         if (canDeny) {
-            message.addReaction(Config.emojis.deny.asReaction()).awaitFirstOrNull()
+            message.addReaction(Config.emojis.deny.asReaction()).await()
         }
 
         val content = when {
@@ -319,21 +281,14 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
                     }
                 }.awaitSingle()
 
-                message.removeAllReactions().awaitFirstOrNull()
+                message.removeAllReactions().await()
 
-                val msgId = message.id
-                val channelId = message.channelId
-                CoroutineScope(Dispatchers.Default).launch {
-                    delay(2 * 60 * 1000)
-                    client.getMessageById(channelId, msgId).awaitFirstOrNull()
-                        ?.addReaction(Config.emojis.match_finished.asReaction())
-                        ?.awaitFirstOrNull()
-                }
-
+                message.reactAfter(3.minutes, Config.emojis.match_finished.asReaction())
+                message.deleteAfter(45.minutes)
             }
             matchService.getNumPlayers() + accepted.size >= requiredPlayers -> {
                 val repop = matchService.pop(accepted)
-                message.delete().awaitFirstOrNull()
+                message.delete().await()
                 handleQueuePop(repop, channel)
             }
             else -> {
@@ -347,6 +302,7 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
                 for (player in accepted) {
                     matchService.join(player)
                 }
+                message.deleteAfter(5.minutes)
             }
         }
 
@@ -356,16 +312,6 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
 
         for (player in missing) {
             matchService.leave(player)
-        }
-
-        val channelId = channel.id
-        val messageId = message.id
-        CoroutineScope(Dispatchers.Default).launch {
-            delay(2 * 60 * 60 * 1000L)
-            client.getMessageById(channelId, messageId)
-                .awaitFirstOrNull()
-                ?.delete()
-                ?.awaitFirstOrNull()
         }
     }
 
@@ -422,7 +368,7 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
         return PopResonse(missing, accepted, denied)
     }
 
-    private fun handleReactMatchFinished(event: ReactionAddEvent) = mono {
+    private suspend fun handleReactMatchFinished(event: ReactionAddEvent) {
         val message = event.message.awaitSingle()
 
         val players = message
@@ -450,11 +396,11 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
                 }
             }.awaitSingle()
 
-            message.removeAllReactions().awaitFirstOrNull()
+            message.removeAllReactions().await()
         }
     }
 
-    private fun handleMatchHubJoined(event: VoiceStateUpdateEvent) = mono {
+    private suspend fun handleMatchHubJoined(event: VoiceStateUpdateEvent) {
         val userId = event.current.userId.asLong()
 
         if (!matchService.isPlayerQueued(userId)) {
@@ -464,7 +410,7 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
                 .awaitSingle()
                 .channels
                 .filter { it.name == "match-queue" }
-                .awaitFirstOrNull()
+                .await()
 
             matchService.join(userId)
 
@@ -475,7 +421,7 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
 
                 delay(60 * 1000)
 
-                msg.delete().awaitFirstOrNull()
+                msg.delete().await()
             }
         }
     }
@@ -506,7 +452,7 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
                     )
                 }
             }
-        }.awaitFirst()
+        }.awaitSingle()
     }
 
     private fun updateStatus() {
