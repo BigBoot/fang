@@ -72,4 +72,4 @@ suspend fun Message.hasReacted(user: Snowflake, emoji: ReactionEmoji): Boolean
 
 /** User **/
 
-suspend fun User.isSelf() = client.selfId.awaitSingle() != id
+suspend fun User.isSelf() = client.selfId.awaitSingle() == id
