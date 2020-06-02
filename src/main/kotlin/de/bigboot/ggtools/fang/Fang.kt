@@ -176,11 +176,11 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
 
     private suspend fun handleCommandEvent(event: MessageCreateEvent) {
         val msg = event.message
-        val text = msg.content.toLowerCase()
+        val text = msg.content
 
         val args = parseArgs(text.substring(Config.bot.prefix.length)).iterator()
 
-        val sudo = msg.content.startsWith("${Config.bot.prefix}sudo") &&
+        val sudo = text.startsWith("${Config.bot.prefix}sudo") &&
                 client.applicationInfo.awaitSingle().ownerId == Snowflake.of(msg.userData.id())
 
         if (sudo && args.hasNext()) {
@@ -189,7 +189,7 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
 
         var command: Command? = commands
         while (args.hasNext() && command is Command.Group) {
-            command = command.commands[args.next()]
+            command = command.commands[args.next().toLowerCase()]
         }
 
         if (command == null) {
