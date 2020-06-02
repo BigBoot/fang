@@ -31,6 +31,7 @@ import java.util.TimerTask
 import kotlin.math.max
 import kotlin.time.Duration
 import kotlin.time.minutes
+import kotlin.time.seconds
 
 class Fang(private val client: GatewayDiscordClient) : KoinComponent {
     private val botId: Snowflake
@@ -401,6 +402,7 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
             }.awaitSingle()
 
             message.removeAllReactions().await()
+            message.deleteAfter(60.seconds)
         }
     }
 
@@ -423,9 +425,7 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
                     it.setContent("Hey <@$userId>. I've noticed you joined the Match Hub voice channel, so I've added you to the queue. Don't forget to leave the queue when you're not available anymore.")
                 }.awaitSingle()
 
-                delay(60 * 1000)
-
-                msg.delete().await()
+                msg.deleteAfter(60.seconds)
             }
         }
     }
