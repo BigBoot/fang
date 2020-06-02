@@ -384,7 +384,11 @@ class Fang(private val client: GatewayDiscordClient) : KoinComponent {
             }
             .flatten()
 
-        if (players.contains(event.userId.asLong())) {
+        val reactors = message.getReactors(Config.emojis.match_finished.asReaction())
+            .map { it.id.asLong() }
+            .await()
+
+        if (players.intersect(reactors).size > 2) {
             for (player in players) {
                 matchService.join(player)
             }
