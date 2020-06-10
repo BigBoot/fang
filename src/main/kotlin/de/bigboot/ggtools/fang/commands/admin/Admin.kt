@@ -3,6 +3,7 @@ package de.bigboot.ggtools.fang.commands.admin
 import de.bigboot.ggtools.fang.CommandGroupBuilder
 import de.bigboot.ggtools.fang.CommandGroupSpec
 import de.bigboot.ggtools.fang.commands.admin.group.Group
+import kotlinx.coroutines.reactive.awaitSingle
 
 class Admin : CommandGroupSpec("admin", "Admin commands") {
     override val build: CommandGroupBuilder.() -> Unit = {
