@@ -2,10 +2,14 @@ package de.bigboot.ggtools.fang.commands.admin.group
 
 import de.bigboot.ggtools.fang.CommandGroupBuilder
 import de.bigboot.ggtools.fang.CommandGroupSpec
+import de.bigboot.ggtools.fang.service.PermissionService
 import de.bigboot.ggtools.fang.utils.findMember
 import kotlinx.coroutines.reactive.awaitSingle
+import org.koin.core.inject
 
 class Users : CommandGroupSpec("users", "Commands for managing users") {
+    val permissionService by inject<PermissionService>()
+
     override val build: CommandGroupBuilder.() -> Unit = {
         command("show", "Show details about a user") {
             arg("user", "The user")

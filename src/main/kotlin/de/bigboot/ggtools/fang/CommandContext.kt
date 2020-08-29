@@ -1,8 +1,5 @@
 package de.bigboot.ggtools.fang
 
-import de.bigboot.ggtools.fang.service.MatchService
-import de.bigboot.ggtools.fang.service.PermissionService
-import de.bigboot.ggtools.fang.service.ServerService
 import discord4j.core.`object`.entity.Guild
 import discord4j.core.`object`.entity.Message
 import discord4j.core.`object`.entity.channel.MessageChannel
@@ -14,9 +11,6 @@ data class CommandContext(
     val args: Arguments,
     val message: Message
 ) : KoinComponent {
-    val serverService: ServerService by inject()
-    val matchService: MatchService by inject()
-    val permissionService: PermissionService by inject()
     private val _commands: Commands by inject()
     val commands = _commands.commands
 

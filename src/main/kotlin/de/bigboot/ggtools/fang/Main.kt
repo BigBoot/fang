@@ -2,8 +2,10 @@ package de.bigboot.ggtools.fang
 
 import de.bigboot.ggtools.fang.di.commandsModule
 import de.bigboot.ggtools.fang.di.databaseModule
+import de.bigboot.ggtools.fang.di.discordModule
 import de.bigboot.ggtools.fang.di.serviceModule
-import discord4j.core.DiscordClient
+import de.bigboot.ggtools.fang.service.AutostartService
+import discord4j.core.GatewayDiscordClient
 import kotlinx.coroutines.reactive.awaitSingle
 import org.flywaydb.core.Flyway
 import org.koin.core.context.startKoin
@@ -12,19 +14,21 @@ import org.koin.core.logger.Level.*
 import org.koin.core.logger.MESSAGE
 import org.tinylog.kotlin.Logger
 
+class Main
+
 suspend fun main() {
     org.tinylog.configuration.Configuration.set("level", Config.bot.log_level)
 
     Flyway
         .configure()
-        .locations(Fang::class.java.`package`.name.replace(".", "/"))
+        .locations(Main::class.java.`package`.name.replace(".", "/"))
         .dataSource(Config.database.url, Config.database.user, Config.database.pass)
         .baselineVersion("0")
         .baselineOnMigrate(true)
         .load()
         .migrate()
 
-    startKoin {
+    val app = startKoin {
         logger(object : org.koin.core.logger.Logger() {
             override fun log(level: Level, msg: MESSAGE) {
                 when (level) {
@@ -36,14 +40,16 @@ suspend fun main() {
             }
         })
 
-        modules(
+        koin.loadModules(listOf(
             databaseModule,
             serviceModule,
-            commandsModule
-        )
+            commandsModule,
+            discordModule,
+        ))
+        koin.createRootScope()
     }
 
-    val client = DiscordClient.create(Config.bot.token).login().awaitSingle()
-
-    Fang(client).run()
+    app.koin.getAll<AutostartService>()
+    app.koin.get<GatewayDiscordClient>().onDisconnect().awaitSingle()
 }
+

@@ -2,9 +2,14 @@ package de.bigboot.ggtools.fang.commands.admin
 
 import de.bigboot.ggtools.fang.CommandGroupBuilder
 import de.bigboot.ggtools.fang.CommandGroupSpec
+import de.bigboot.ggtools.fang.service.PermissionService
+import de.bigboot.ggtools.fang.service.ServerService
 import kotlinx.coroutines.reactive.awaitSingle
+import org.koin.core.inject
 
 class Server : CommandGroupSpec("server", "Commands for managing servers") {
+    val serverService by inject<ServerService>()
+
     override val build: CommandGroupBuilder.() -> Unit = {
         command("add", "Add a server") {
             arg("name", "How to address this server when issuing commands")

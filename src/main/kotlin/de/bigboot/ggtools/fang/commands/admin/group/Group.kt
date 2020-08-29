@@ -2,9 +2,13 @@ package de.bigboot.ggtools.fang.commands.admin.group
 
 import de.bigboot.ggtools.fang.CommandGroupBuilder
 import de.bigboot.ggtools.fang.Config
+import de.bigboot.ggtools.fang.service.PermissionService
 import kotlinx.coroutines.reactive.awaitSingle
+import org.koin.core.inject
 
 class Group : de.bigboot.ggtools.fang.CommandGroupSpec("group", "Commands for managing groups") {
+    val permissionService by inject<PermissionService>()
+
     override val build: CommandGroupBuilder.() -> Unit = {
         group(Permissions())
         group(Users())

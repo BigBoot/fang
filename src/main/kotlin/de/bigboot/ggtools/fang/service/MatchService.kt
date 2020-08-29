@@ -16,7 +16,7 @@ interface MatchService {
 
     fun getPlayers(): Collection<Player>
 
-    fun getNumPlayers(): Int
+    fun getNumPlayers(): Long
 
     fun isPlayerQueued(snowflake: Long): Boolean
 

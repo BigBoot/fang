@@ -3,9 +3,13 @@ package de.bigboot.ggtools.fang.commands.admin.group
 import de.bigboot.ggtools.fang.CommandGroupBuilder
 import de.bigboot.ggtools.fang.CommandGroupSpec
 import de.bigboot.ggtools.fang.Config
+import de.bigboot.ggtools.fang.service.PermissionService
 import kotlinx.coroutines.reactive.awaitSingle
+import org.koin.core.inject
 
 class Permissions : CommandGroupSpec("permissions", "Manage group permissions") {
+    val permissionService by inject<PermissionService>()
+
     override val build: CommandGroupBuilder.() -> Unit = {
         command("add", "Grant a permission to a group") {
             arg("group", "The group to modify")

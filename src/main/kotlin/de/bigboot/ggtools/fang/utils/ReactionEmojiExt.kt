@@ -1,7 +1,7 @@
 package de.bigboot.ggtools.fang.utils
 
+import discord4j.common.util.Snowflake
 import discord4j.core.`object`.reaction.ReactionEmoji
-import discord4j.rest.util.Snowflake
 
 private val emojiRegex = Regex("""<(a?):(\w+):(\d+)>""")
 fun String.asReaction(): ReactionEmoji = emojiRegex.find(this)?.let {

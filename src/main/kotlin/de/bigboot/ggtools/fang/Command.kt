@@ -1,5 +1,7 @@
 package de.bigboot.ggtools.fang
 
+import org.koin.core.KoinComponent
+
 data class Argument(
     val name: String,
     val description: String,
@@ -10,7 +12,7 @@ interface Commands {
     val commands: Map<String, Command>
 }
 
-abstract class CommandGroupSpec(val name: String, val description: String) {
+abstract class CommandGroupSpec(val name: String, val description: String): KoinComponent {
     abstract val build: CommandGroupBuilder.() -> Unit
 }
 

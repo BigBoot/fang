@@ -5,13 +5,17 @@ import de.bigboot.ggtools.fang.CommandGroupSpec
 import de.bigboot.ggtools.fang.api.model.AdminPWRequest
 import de.bigboot.ggtools.fang.api.model.KillRequest
 import de.bigboot.ggtools.fang.api.model.StartRequest
+import de.bigboot.ggtools.fang.service.ServerService
 import de.bigboot.ggtools.fang.utils.orNull
 import discord4j.core.`object`.reaction.ReactionEmoji
 import kotlinx.coroutines.reactive.awaitFirstOrNull
 import kotlinx.coroutines.reactive.awaitSingle
+import org.koin.core.inject
 import reactor.core.publisher.Mono
 
 class Server : CommandGroupSpec("server", "Commands for controlling servers") {
+    val serverService by inject<ServerService>()
+
     override val build: CommandGroupBuilder.() -> Unit = {
         command("list", "List all servers") {
             onCall {

@@ -1,9 +1,9 @@
 package de.bigboot.ggtools.fang.utils
 
+import discord4j.common.util.Snowflake
 import discord4j.core.`object`.entity.Guild
 import discord4j.core.`object`.entity.Member
 import discord4j.core.`object`.entity.channel.MessageChannel
-import discord4j.rest.util.Snowflake
 import kotlinx.coroutines.reactive.awaitFirstOrNull
 
 private val userRegex = Regex("""<@!(\d+)>""")

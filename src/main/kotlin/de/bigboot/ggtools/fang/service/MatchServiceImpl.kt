@@ -84,7 +84,7 @@ class MatchServiceImpl : MatchService, KoinComponent {
     }
 
     override fun printQueue(): String = when {
-        getNumPlayers() == 0 -> "No one in queue ${Config.emojis.queue_empty}."
+        getNumPlayers() == 0L -> "No one in queue ${Config.emojis.queue_empty}."
         else -> getPlayers().sortedBy { it.joined }.joinToString("\n") { player ->
             val duration = ChronoUnit.MILLIS.between(Instant.ofEpochMilli(player.joined), Instant.now())
             "<@${player.snowflake}> (In queue for ${duration.milliSecondsToTimespan()})"

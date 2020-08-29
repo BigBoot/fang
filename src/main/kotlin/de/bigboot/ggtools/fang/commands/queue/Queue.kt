@@ -3,12 +3,16 @@ package de.bigboot.ggtools.fang.commands.queue
 import de.bigboot.ggtools.fang.CommandContext
 import de.bigboot.ggtools.fang.CommandGroupBuilder
 import de.bigboot.ggtools.fang.CommandGroupSpec
+import de.bigboot.ggtools.fang.service.MatchService
 import de.bigboot.ggtools.fang.utils.findChannel
 import de.bigboot.ggtools.fang.utils.findMember
-import discord4j.rest.util.Snowflake
+import discord4j.common.util.Snowflake
 import kotlinx.coroutines.reactive.awaitSingle
+import org.koin.core.inject
 
 class Queue : CommandGroupSpec("queue", "Commands for matchmaking") {
+    val matchService by inject<MatchService>()
+
     val matchQueueMoved: suspend CommandContext.() -> Unit = {
         val channelId = guild().findChannel("match-queue")
         val channelText = channelId?.let { "<#$it>" } ?: "#match-queue"
