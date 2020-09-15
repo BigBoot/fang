@@ -10,9 +10,11 @@ class User(id: EntityID<UUID>) : UUIDEntity(id) {
     companion object : UUIDEntityClass<User>(Users)
 
     var snowflake by Users.snowflake
+    var skill by Users.skill
     var groups by Group via UsersGroups
 }
 
 object Users : UUIDTable() {
     val snowflake = long("snowflake")
+    val skill = integer("skill").default(1)
 }

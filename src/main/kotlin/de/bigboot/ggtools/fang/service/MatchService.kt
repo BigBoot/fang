@@ -22,6 +22,12 @@ interface MatchService {
 
     fun printQueue(): String
 
+    fun setPlayerSkill(snowflake: Long, skill: Int)
+
+    fun getPlayerSkill(snowflake: Long): Int
+
+    fun createTeams(players: Collection<Long>): Pair<Collection<Long>, Collection<Long>>
+
     data class Player(
         val snowflake: Long,
         val joined: Long

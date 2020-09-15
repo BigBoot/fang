@@ -1,9 +1,6 @@
 package de.bigboot.ggtools.fang.service
 
-import de.bigboot.ggtools.fang.Command
-import de.bigboot.ggtools.fang.CommandContext
-import de.bigboot.ggtools.fang.CommandGroupBuilder
-import de.bigboot.ggtools.fang.Config
+import de.bigboot.ggtools.fang.*
 import de.bigboot.ggtools.fang.commands.Root
 import de.bigboot.ggtools.fang.utils.*
 import discord4j.common.util.Snowflake
@@ -77,9 +74,15 @@ class CommandsService : AutostartService, KoinComponent {
 
         when (command) {
             is Command.Invokable -> {
-                val commandArgs = createCommandArguments(command, args.asSequence().toList())
+                val argList = args.asSequence().toList();
+                val commandArgs = createCommandArguments(command, argList)
                 if (commandArgs != null) {
-                    command.handler(CommandContext(commandArgs, msg))
+                    val invalidArgs = verfiyCommandArguments(command, argList)
+                    if(invalidArgs.isEmpty()) {
+                        command.handler(CommandContext(commandArgs, msg))
+                    } else {
+                        printInvalidArguments(msg.channel.awaitSingle(), command, invalidArgs)
+                    }
                 } else {
                     printCommandHelp(msg.channel.awaitSingle(), command)
                 }
@@ -99,6 +102,19 @@ class CommandsService : AutostartService, KoinComponent {
             )
         }
         return null
+    }
+
+    private fun verfiyCommandArguments(command: Command.Invokable, args: Collection<String>): Collection<Pair<Argument, String>> {
+        return command.args
+            .zip(args)
+            .filter { it.first.verifier?.invoke(it.second) == false }
+    }
+
+    private suspend fun printInvalidArguments(channel: MessageChannel, command: Command.Invokable, args: Collection<Pair<Argument, String>>) {
+        channel.createEmbed { embed ->
+            embed.setTitle("Usage: ${formatCommandHelp(command.fullname, command)}")
+            embed.setDescription(args.joinToString("\n") { "Invalid value for argument ${it.first.name}: ${it.second}\nExpected: ${it.first.description}" })
+        }.awaitSingle()
     }
 
     private suspend fun printCommandHelp(channel: MessageChannel, command: Command) {

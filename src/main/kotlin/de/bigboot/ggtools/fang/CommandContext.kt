@@ -20,5 +20,6 @@ data class CommandContext(
     class Arguments(private val arguments: Map<String, String>) {
         operator fun get(key: String) = arguments.getValue(key)
         fun optional(key: String) = arguments[key]
+        fun has(key: String) = arguments.containsKey(key)
     }
 }

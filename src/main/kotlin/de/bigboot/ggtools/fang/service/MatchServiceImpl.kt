@@ -3,6 +3,8 @@ package de.bigboot.ggtools.fang.service
 import de.bigboot.ggtools.fang.Config
 import de.bigboot.ggtools.fang.db.Player
 import de.bigboot.ggtools.fang.db.Players
+import de.bigboot.ggtools.fang.db.User
+import de.bigboot.ggtools.fang.db.Users
 import de.bigboot.ggtools.fang.utils.milliSecondsToTimespan
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -10,6 +12,7 @@ import org.koin.core.KoinComponent
 import org.koin.core.inject
 import java.time.Instant
 import java.time.temporal.ChronoUnit
+import kotlin.math.ceil
 
 class MatchServiceImpl : MatchService, KoinComponent {
     private val database: Database by inject()
@@ -89,6 +92,35 @@ class MatchServiceImpl : MatchService, KoinComponent {
             val duration = ChronoUnit.MILLIS.between(Instant.ofEpochMilli(player.joined), Instant.now())
             "<@${player.snowflake}> (In queue for ${duration.milliSecondsToTimespan()})"
         }
+    }
+
+    override fun setPlayerSkill(snowflake: Long, skill: Int) = transaction(database) {
+        val user = User.find { Users.snowflake eq snowflake }.firstOrNull() ?: User.new {
+            this.snowflake = snowflake
+        }
+        user.skill = skill
+    }
+
+    override fun getPlayerSkill(snowflake: Long) = transaction(database) {
+        User.find { Users.snowflake eq snowflake }.firstOrNull()?.skill ?: 1
+    }
+
+    override fun createTeams(players: Collection<Long>): Pair<Collection<Long>, Collection<Long>> {
+        val playersWithSkill = players.map { Pair(it, getPlayerSkill(it)) }
+            .sortedByDescending { it.second + kotlin.random.Random.nextDouble() }
+
+        val teams = Pair(ArrayList<Pair<Long, Int>>(), ArrayList<Pair<Long, Int>>())
+
+        for (player in playersWithSkill) {
+            if(teams.first.size < ceil(players.size/2.0) && teams.first.sumBy { it.second } <= teams.second.sumBy { it.second }) {
+                teams.first.add(player)
+            }
+            else {
+                teams.second.add(player)
+            }
+        }
+
+        return Pair(teams.first.map { it.first }, teams.second.map { it.first })
     }
 }
 

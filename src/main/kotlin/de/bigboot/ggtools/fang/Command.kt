@@ -5,7 +5,8 @@ import org.koin.core.KoinComponent
 data class Argument(
     val name: String,
     val description: String,
-    val optional: Boolean
+    val optional: Boolean,
+    val verifier: ((String)->Boolean)? = null,
 )
 
 interface Commands {
@@ -59,8 +60,8 @@ class CommandBuilder(private val name: String, private val description: String) 
     private var handler: suspend CommandContext.() -> Unit = {}
     private var args = ArrayList<Argument>()
 
-    fun arg(name: String, description: String = "", optional: Boolean = false) {
-        this.args.add(Argument(name, description, optional))
+    fun arg(name: String, description: String = "", optional: Boolean = false, verify: ((String)->Boolean)? = null) {
+        this.args.add(Argument(name, description, optional, verify))
     }
 
     fun onCall(handler: suspend CommandContext.() -> Unit) {
