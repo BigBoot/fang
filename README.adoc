@@ -1,0 +1,55 @@
+= Fang
+ 
+== How to build
+
+Windows
+
+ gradlew.bat shadowJar
+ 
+Linux
+
+ ./gradlew shadowJar
+ 
+The resulting jar file will be located in: `build/libs/fang-1.0-SNAPSHOT-all.jar`
+
+== How to Run
+
+ java -jar build/libs/fang-1.0-SNAPSHOT-all.jar
+ 
+== Configuration
+.config.toml
+[source,toml]
+----
+## Uncomment options and adjust if needed
+
+[bot]
+token = "<Discord Bot Token>"  # Required <1>
+# prefix = "!"
+# accept_timeout = 120
+# statusupdate_poll_rate = 2000
+# required_players = 10
+# log_level = "info"
+
+[database]
+## Available drivers: "org.h2.Driver" | "com.mysql.cj.jdbc.Driver" | "org.postgresql.Driver"
+# driver = "org.h2.Driver" 
+# url = "jdbc:h2:./fang"
+# user = ""
+# pass = ""
+
+[permissions]
+# default_group_name = "default"
+# default_group_permissions = []
+# admin_group_name = "admin"
+# admin_group_permissions = [ "*" ]
+
+[emojis]
+# accept = "👍"
+# deny = "👎"
+# match_finished = "🏁"
+# match_drop = "👎"
+# queue_empty = "😢"
+# join_queue = "👍"
+# leave_queue = "👎"
+----
+<1> https://github.com/reactiflux/discord-irc/wiki/Creating-a-discord-bot-&-getting-a-token
