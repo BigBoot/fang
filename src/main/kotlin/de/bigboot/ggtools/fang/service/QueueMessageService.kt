@@ -140,13 +140,11 @@ class QueueMessageService : AutostartService, KoinComponent {
 
             when {
                 accepted.count() >= requiredPlayers -> {
-                    val teams = matchService.createTeams(players)
                     message.edit {
                         it.setEmbed { embed ->
                             embed.setTitle("Match ready!")
-                            embed.setDescription("Everybody get ready, you've got a match.\nHave fun!\n\nPlease react with a ${Config.emojis.match_finished} after the match is finished to get added back to the queue.\nReact with a ${Config.emojis.match_drop} to drop out after this match.\n\nSuggested teams:")
-                            embed.addField("open ?team=0", teams.first.joinToString(" ") { "<@$it>" }.ifBlank { "None" }, true)
-                            embed.addField("open ?team=1", teams.second.joinToString(" ") { "<@$it>" }.ifBlank { "None" }, true)
+                            embed.setDescription("Everybody get ready, you've got a match.\nHave fun!\n\nPlease react with a ${Config.emojis.match_finished} after the match is finished to get added back to the queue.\nReact with a ${Config.emojis.match_drop} to drop out after this match.")
+                            embed.addField("Players", players.joinToString(" ") { "<@$it>" }, true)
                         }
                     }.awaitSingle()
 
