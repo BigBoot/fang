@@ -19,6 +19,8 @@ class Main
 suspend fun main() {
     org.tinylog.configuration.Configuration.set("level", Config.bot.log_level)
 
+    Logger.info { "Working dir: ${System.getProperty("user.dir")}" }
+
     Flyway
         .configure()
         .locations(Main::class.java.`package`.name.replace(".", "/"))
