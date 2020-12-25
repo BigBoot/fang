@@ -17,9 +17,9 @@ import org.tinylog.kotlin.Logger
 class Main
 
 suspend fun main() {
-    org.tinylog.configuration.Configuration.set("level", Config.bot.log_level)
+    println("Working dir: ${System.getProperty("user.dir")}")
 
-    Logger.info { "Working dir: ${System.getProperty("user.dir")}" }
+    org.tinylog.configuration.Configuration.set("level", Config.bot.log_level)
 
     Flyway
         .configure()
