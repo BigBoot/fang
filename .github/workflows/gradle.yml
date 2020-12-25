@@ -16,43 +16,25 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v2
       
-    - name: Set up JDK 8
-      uses: actions/setup-java@v1
-      with:
-        java-version: 8
-  
-    - name: Grant execute permission for gradlew
-      run: chmod +x gradlew
-      
-    - name: Build with Gradle
-      run: ./gradlew shadowJar
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v1
 
-    - name: Create Release
-      uses: ncipollo/release-action@v1.6.1
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v1
+
+    - name: Login to Registry
+      uses: docker/login-action@v1 
       with:
-        name: latest
-        tag: latest
-        allowUpdates: true
-        prerelease: true
-        artifact: "build/libs/*-all.jar"
-        token: ${{ secrets.GITHUB_TOKEN }}
-        
-    - name: Update latest tag
-      uses: richardsimko/update-tag@master
+        registry: ${{ secrets.REGISTRY }}
+        username: ${{ secrets.REGISTRY_USERNAME }}
+        password: ${{ secrets.REGISTRY_PASSWORD }}
+
+    - name: Build and push
+      id: docker_build
+      uses: docker/build-push-action@v2
       with:
-        tag_name: latest
-      env: 
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        
-    - name: Deploy
-      uses: alinz/ssh-scp-action@v0.1.1
-      with:
-        host: ${{ secrets.DEPLOY_SSH_HOST }}
-        user: ${{ secrets.DEPLOY_SSH_USER }}
-        key: ${{ secrets.DEPLOY_SSH_KEY }}
-        ssh_before: rm -f ${{ secrets.DEPLOY_SSH_PATH }}/*-all.jar
-        scp: "\"build/libs/*-all.jar\" ${{ secrets.DEPLOY_SSH_USER }}@${{ secrets.DEPLOY_SSH_HOST }}:${{ secrets.DEPLOY_SSH_PATH }}/"
-        ssh_after: supervisorctl restart fang
+        push: true
+        tags: ${{ secrets.REPOSITORY }}/fang:latest
         
 
     

@@ -29,6 +29,7 @@ application {
 dependencies {
 
     implementation(kotlin("stdlib-jdk8"))
+    implementation(kotlin("reflect"))
 
     // kotlinx-coroutines & reactor extension
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.5")
