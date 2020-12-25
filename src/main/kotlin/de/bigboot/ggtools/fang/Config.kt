@@ -53,5 +53,5 @@ data class RootConfig(
 )
 
 private val moshi = Moshi.Builder().build()
-private val toml = Toml.parse(Paths.get("config.toml"))
+private val toml = Toml.parse(Paths.get(System.getProperty("user.dir")).resolve("config.toml"))
 val Config = moshi.adapter(RootConfig::class.java).fromJson(toml.toJson())!!
