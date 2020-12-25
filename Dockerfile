@@ -12,5 +12,4 @@ RUN mkdir /data
 
 COPY --from=build /home/gradle/src/build/libs/*-all.jar /app/app.jar
 
-WORKDIR /data/
-ENTRYPOINT ["java", "-XX:+UnlockExperimentalVMOptions", "-XX:+UseCGroupMemoryLimitForHeap", "-Djava.security.egd=file:/dev/./urandom","-jar","/app/app.jar"]
+ENTRYPOINT ["java", "-XX:+UnlockExperimentalVMOptions", "-XX:+UseCGroupMemoryLimitForHeap", "-Djava.security.egd=file:/dev/./urandom", "-Duser.dir=/data/", "-jar", "/app/app.jar"]
