@@ -8,6 +8,7 @@ val serviceModule = module {
     single { MatchServiceImpl() } bind MatchService::class
     single { PermissionServiceImpl() } bind PermissionService::class
     single { ServerServiceImpl() } bind ServerService::class
+    single { ChangelogServiceImpl() } bind ChangelogService::class
 
     single { CommandsService() } bind AutostartService::class
     single { QueueJoinNotificationService() } bind AutostartService::class

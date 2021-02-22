@@ -16,6 +16,7 @@ import java.util.concurrent.CompletableFuture
 class SetupGuildServiceImpl : AutostartService, SetupGuildService, KoinComponent {
     private val client: GatewayDiscordClient by inject()
     private val queueMessage = CompletableFuture<SetupGuildService.QueueMessage>()
+    private val changelogService by inject<ChangelogService>()
 
     init {
         client.eventDispatcher.on<GuildCreateEvent>()
@@ -45,9 +46,25 @@ class SetupGuildServiceImpl : AutostartService, SetupGuildService, KoinComponent
             queueChannel.createMessage {
                 @Suppress("MagicNumber")
                 it.setContent("-".repeat(32))
-            }.awaitSingle()
+            }.awaitSafe()
 
             queueMessage.complete(SetupGuildService.QueueMessage(queueMsg.id, queueChannel.id))
+        }
+
+        val secretChannel = event.guild.channels
+            .flow()
+            .firstOrNull { it.name == "secret-hub" } as? MessageChannel
+
+        if(secretChannel != null) {
+            val changelog = changelogService.changelog
+            Logger.info { "Found secret channel! Posting changelog: ${changelog.isNotEmpty()}!" }
+
+            if(changelog.isNotEmpty()) {
+                secretChannel.createEmbed {
+                    it.setTitle("I'm even better now!")
+                    it.addField("Changes", changelog.joinToString("\n") { change -> "• $change" }, false)
+                }.awaitSafe()
+            }
         }
     }
 

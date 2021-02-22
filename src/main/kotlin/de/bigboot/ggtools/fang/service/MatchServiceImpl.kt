@@ -19,6 +19,12 @@ class MatchServiceImpl : MatchService, KoinComponent {
     private var force = false
     private var request: MatchService.Request? = null
 
+    init {
+        transaction(database) {
+            Players.deleteWhere { Players.inMatch eq true }
+        }
+    }
+
     override fun join(snowflake: Long): Boolean {
         transaction {
             val player = Player.find { Players.snowflake eq snowflake }.firstOrNull() ?: Player.new {
