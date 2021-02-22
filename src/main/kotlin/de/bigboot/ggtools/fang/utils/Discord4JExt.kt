@@ -62,12 +62,14 @@ suspend fun Message.doAfter(duration: Duration, block: suspend Message.()->Unit)
     }
 }
 
-suspend fun Message.deleteAfter(duration: Duration) = doAfter(duration) {
+suspend fun Message.deleteAfter(duration: Duration, andThen: (suspend () -> Unit)? = null) = doAfter(duration) {
     delete().awaitFirstOrNull()
+    andThen?.invoke()
 }
 
-suspend fun Message.reactAfter(duration: Duration, emoji: ReactionEmoji) = doAfter(duration) {
+suspend fun Message.reactAfter(duration: Duration, emoji: ReactionEmoji, andThen: (suspend () -> Unit)? = null) = doAfter(duration) {
     addReaction(emoji).awaitFirstOrNull()
+    andThen?.invoke()
 }
 
 fun Message.isFromSelf() = client.selfId == Snowflake.of(userData.id())

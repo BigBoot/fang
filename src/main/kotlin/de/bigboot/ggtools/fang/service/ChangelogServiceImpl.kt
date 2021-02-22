@@ -11,6 +11,9 @@ private val CHANGELOG = listOf(
     listOf(
         "Fixed queue timers",
     ),
+    listOf(
+        "Fixed queue timers when match takes longer than 90 minutes",
+    ),
 )
 
 class ChangelogServiceImpl: KoinComponent, ChangelogService {

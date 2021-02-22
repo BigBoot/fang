@@ -4,7 +4,7 @@ interface MatchService {
 
     fun join(snowflake: Long): Boolean
 
-    fun leave(snowflake: Long): Boolean
+    fun leave(snowflake: Long, matchOnly: Boolean = false): Boolean
 
     fun canPop(): Boolean
 

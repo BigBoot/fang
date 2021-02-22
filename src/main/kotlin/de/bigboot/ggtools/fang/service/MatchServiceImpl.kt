@@ -37,9 +37,14 @@ class MatchServiceImpl : MatchService, KoinComponent {
         return true
     }
 
-    override fun leave(snowflake: Long): Boolean {
+    override fun leave(snowflake: Long, matchOnly: Boolean): Boolean {
         return transaction {
-            Players.deleteWhere { Players.snowflake eq snowflake } != 0
+            Players.deleteWhere {
+                when (matchOnly) {
+                    true -> (Players.snowflake eq snowflake) and (Players.inMatch eq true)
+                    false -> (Players.snowflake eq snowflake)
+                }
+            } != 0
         }
     }
 

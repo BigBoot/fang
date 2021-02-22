@@ -152,7 +152,11 @@ class QueueMessageService : AutostartService, KoinComponent {
 
                     message.addReaction(Config.emojis.match_drop.asReaction()).awaitSafe()
                     message.reactAfter(3.minutes, Config.emojis.match_finished.asReaction())
-                    message.deleteAfter(90.minutes)
+                    message.deleteAfter(90.minutes) {
+                        accepted.forEach {
+                            matchService.leave(it, true)
+                        }
+                    }
                 }
                 matchService.getNumPlayers() + accepted.size >= requiredPlayers -> {
                     val repop = matchService.pop(accepted)
@@ -179,7 +183,7 @@ class QueueMessageService : AutostartService, KoinComponent {
             }
 
             for (player in missing) {
-                matchService.leave(player)
+                matchService.leave(player,)
             }
         }
     }
