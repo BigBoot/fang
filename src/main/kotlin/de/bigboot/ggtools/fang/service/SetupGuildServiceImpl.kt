@@ -37,7 +37,9 @@ class SetupGuildServiceImpl : AutostartService, SetupGuildService, KoinComponent
             queueChannel.clean()
 
             val queueMsg = queueChannel.createMessage {
-                it.setEmbed {}
+                it.setEmbed { embed ->
+                    embed.setDescription("...")
+                }
             }.awaitSingle()
 
             queueMsg.addReaction(Config.emojis.join_queue.asReaction()).await()

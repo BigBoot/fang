@@ -84,7 +84,8 @@ fun User.isSelf() = client.selfId == id
 
 /** Channel **/
 suspend fun MessageChannel.clean() {
-    messages.doOnNext { it.delete().subscribe() }.awaitLast()
+    messages.doOnNext { it.delete().subscribe() }.awaitSafe()
 }
 
-val MessageChannel.messages: Flux<Message> get() = getMessagesBefore(Snowflake.of(Instant.now()))
+val MessageChannel.messages: Flux<Message> get()
+    = lastMessageId.orNull()?.let { getMessagesBefore(it) } ?: Flux.empty()
