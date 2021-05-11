@@ -17,6 +17,9 @@ private val CHANGELOG = listOf(
     listOf(
         "Increase msg update times to fix queue emoji problems",
     ),
+    listOf(
+        "Fix queue channel cleanup",
+    ),
 )
 
 class ChangelogServiceImpl: KoinComponent, ChangelogService {
