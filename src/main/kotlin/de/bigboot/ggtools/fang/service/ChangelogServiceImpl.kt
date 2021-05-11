@@ -14,6 +14,9 @@ private val CHANGELOG = listOf(
     listOf(
         "Fixed queue timers when match takes longer than 90 minutes",
     ),
+    listOf(
+        "Increase msg update times to fix queue emoji problems",
+    ),
 )
 
 class ChangelogServiceImpl: KoinComponent, ChangelogService {
