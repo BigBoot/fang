@@ -49,7 +49,7 @@ class QueueMessageService : AutostartService, KoinComponent {
                         updateQueueMessage(client.getMessageById(queueMessage.channelId, queueMessage.msgId).awaitSingle())
                     }
                 }
-            }, 0, 5000)
+            }, 0, 30000)
 
             updateQueueTimer.schedule(object : TimerTask() {
                 override fun run() {
@@ -61,7 +61,7 @@ class QueueMessageService : AutostartService, KoinComponent {
                         }
                     }
                 }
-            }, 0, 500)
+            }, 0, 5000)
         }
     }
 
