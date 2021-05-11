@@ -88,4 +88,4 @@ suspend fun MessageChannel.clean() {
 }
 
 val MessageChannel.messages: Flux<Message> get()
-    = lastMessageId.orNull()?.let { getMessagesBefore(it) } ?: Flux.empty()
+    = lastMessageId.orNull()?.let { getMessagesBefore(it) } ?: Flux.empty() 
