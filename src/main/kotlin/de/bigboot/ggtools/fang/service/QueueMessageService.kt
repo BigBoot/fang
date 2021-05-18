@@ -17,6 +17,7 @@ import kotlin.collections.HashSet
 import kotlin.math.max
 import kotlin.time.minutes
 import kotlin.time.seconds
+import de.bigboot.ggtools.fang.service.MatchService
 
 class QueueMessageService : AutostartService, KoinComponent {
     private val client by inject<GatewayDiscordClient>()
@@ -144,7 +145,8 @@ class QueueMessageService : AutostartService, KoinComponent {
                         it.setEmbed { embed ->
                             embed.setTitle("Match ready!")
                             embed.setDescription("Everybody get ready, you've got a match.\nHave fun!\n\nPlease react with a ${Config.emojis.match_finished} after the match is finished to get added back to the queue.\nReact with a ${Config.emojis.match_drop} to drop out after this match.")
-                            embed.addField("Players", players.joinToString(" ") { "<@$it>" }, true)
+                            embed.addField("Players", players.joinToString(" ") { "<@$it>" }, false)
+                            embed.addField("Teams", matchService.createTeams(players) { "<@$it>" }, false)
                         }
                     }.awaitSingle()
 
