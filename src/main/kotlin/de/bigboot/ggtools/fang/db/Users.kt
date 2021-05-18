@@ -5,6 +5,7 @@ import org.jetbrains.exposed.dao.UUIDEntityClass
 import org.jetbrains.exposed.dao.id.EntityID
 import org.jetbrains.exposed.dao.id.UUIDTable
 import java.util.*
+import de.bigboot.ggtools.fang.Config
 
 class User(id: EntityID<UUID>) : UUIDEntity(id) {
     companion object : UUIDEntityClass<User>(Users)
@@ -16,5 +17,5 @@ class User(id: EntityID<UUID>) : UUIDEntity(id) {
 
 object Users : UUIDTable() {
     val snowflake = long("snowflake")
-    val skill = integer("skill").default(500)
+    val skill = integer("skill").default(Config.bot.start_score)
 }

@@ -29,6 +29,8 @@ token = "<Discord Bot Token>"  # Required <1>
 # statusupdate_poll_rate = 2000
 # required_players = 10
 # log_level = "info"
+# start_score = 500
+# score_increase = 5
 
 [database]
 ## Available drivers: "org.h2.Driver" | "com.mysql.cj.jdbc.Driver" | "org.postgresql.Driver"

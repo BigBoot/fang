@@ -34,6 +34,8 @@ data class BotConfig(
     val statusupdate_poll_rate: Long = 2000L,
     val required_players: Int = 10,
     val log_level: String = "info",
+    val start_score: Int = 500,
+    val score_increase: Int = 5,
 )
 
 @JsonClass(generateAdapter = true)
