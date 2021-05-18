@@ -26,7 +26,6 @@ class QueueMessageService : AutostartService, KoinComponent {
 
     private val updateQueueTimer = Timer(true)
 
-
     init {
         client.eventDispatcher.on<ReactionAddEvent>()
             .filter { it.message.awaitSingle().run {
@@ -146,7 +145,10 @@ class QueueMessageService : AutostartService, KoinComponent {
                             embed.setTitle("Match ready!")
                             embed.setDescription("Everybody get ready, you've got a match.\nHave fun!\n\nPlease react with a ${Config.emojis.match_finished} after the match is finished to get added back to the queue.\nReact with a ${Config.emojis.match_drop} to drop out after this match.")
                             embed.addField("Players", players.joinToString(" ") { "<@$it>" }, false)
-                            embed.addField("Teams", matchService.createTeams(players) { "<@$it>" }, false)
+                            //val teams = matchService.createTeams(players)
+                            //val teamone = mutableListOf<String>(" ")
+                            //for (i in teams) teamsone.add("<@$i>")
+                            //embed.addField("Teams", teamone.toString(" "), false)
                         }
                     }.awaitSingle()
 

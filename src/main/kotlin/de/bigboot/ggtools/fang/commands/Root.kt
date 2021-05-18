@@ -47,7 +47,7 @@ class Root : CommandGroupSpec("", "") {
             }
         }
 
-        command("skill", "Set your skill level.") {
+        command("skill", "Shows your skill") {
             onCall {
                 val user = Snowflake.of(message.userData.id()).asLong();
                 channel().createEmbed { embed ->
