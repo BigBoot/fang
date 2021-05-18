@@ -48,23 +48,11 @@ class Root : CommandGroupSpec("", "") {
         }
 
         command("skill", "Set your skill level.") {
-            arg("skill", "Your skill level on a scale of 1-10.", optional = true) {
-                (1..10).contains(it.toIntOrNull() ?: -1)
-            }
-
             onCall {
                 val user = Snowflake.of(message.userData.id()).asLong();
-                if(args.has("skill")) {
-                    matchService.setPlayerSkill(user, args["skill"].toInt())
-                    channel().createEmbed { embed ->
-                        embed.setTitle("Your new skill level is: ${args["skill"]}")
-                    }.awaitFirst()
-                }
-                else {
-                    channel().createEmbed { embed ->
-                        embed.setTitle("Your current skill level is: ${matchService.getPlayerSkill(user)}")
-                    }.awaitFirst()
-                }
+                channel().createEmbed { embed ->
+                    embed.setTitle("Your current skill level is: ${matchService.getPlayerSkill(user)}")
+                }.awaitFirst()
             }
         }
     }

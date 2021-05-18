@@ -16,5 +16,5 @@ class User(id: EntityID<UUID>) : UUIDEntity(id) {
 
 object Users : UUIDTable() {
     val snowflake = long("snowflake")
-    val skill = integer("skill").default(1)
+    val skill = integer("skill").default(500)
 }

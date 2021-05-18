@@ -6,7 +6,7 @@ import de.bigboot.ggtools.fang.commands.admin.group.Group
 import kotlinx.coroutines.reactive.awaitSingle
 import kotlin.system.exitProcess
 
-class Admin : CommandGroupSpec("admin", "Admin commands") {
+class Admin : CommandGroupSpec("score", "Admin commands") {
     override val build: CommandGroupBuilder.() -> Unit = {
         group(Server())
         group(Group())
