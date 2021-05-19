@@ -58,11 +58,11 @@ class Admin : CommandGroupSpec("admin", "Admin commands") {
                 matchService.setPlayerSkill(player3, matchService.getPlayerSkill(player3) + (Config.bot.score_increase * howFair))
                 matchService.setPlayerSkill(player4, matchService.getPlayerSkill(player4) + (Config.bot.score_increase * howFair))
                 matchService.setPlayerSkill(player5, matchService.getPlayerSkill(player5) + (Config.bot.score_increase * howFair))
-                matchService.setPlayerSkill(player6, matchService.getPlayerSkill(player6) + (Config.bot.score_increase * howFair))
-                matchService.setPlayerSkill(player7, matchService.getPlayerSkill(player7) + (Config.bot.score_increase * howFair))
-                matchService.setPlayerSkill(player8, matchService.getPlayerSkill(player8) + (Config.bot.score_increase * howFair))
-                matchService.setPlayerSkill(player9, matchService.getPlayerSkill(player9) + (Config.bot.score_increase * howFair))
-                matchService.setPlayerSkill(player10, matchService.getPlayerSkill(player10) + (Config.bot.score_increase * howFair))
+                matchService.setPlayerSkill(player6, matchService.getPlayerSkill(player6) + ((Config.bot.score_increase * howFair)*-1))
+                matchService.setPlayerSkill(player7, matchService.getPlayerSkill(player7) + ((Config.bot.score_increase * howFair)*-1))
+                matchService.setPlayerSkill(player8, matchService.getPlayerSkill(player8) + ((Config.bot.score_increase * howFair)*-1))
+                matchService.setPlayerSkill(player9, matchService.getPlayerSkill(player9) + ((Config.bot.score_increase * howFair)*-1))
+                matchService.setPlayerSkill(player10, matchService.getPlayerSkill(player10) + ((Config.bot.score_increase * howFair)*-1))
             }
         }
     }
