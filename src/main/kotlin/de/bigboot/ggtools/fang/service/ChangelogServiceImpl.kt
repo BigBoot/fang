@@ -20,6 +20,9 @@ private val CHANGELOG = listOf(
     listOf(
         "Fix queue channel cleanup",
     ),
+    listOf(
+        "Added Frankenbuild queue",
+    ),
 )
 
 class ChangelogServiceImpl: KoinComponent, ChangelogService {

@@ -22,6 +22,7 @@ class QueueMessageService : AutostartService, KoinComponent {
     private val client by inject<GatewayDiscordClient>()
     private val matchService by inject<MatchService>()
     private val setupGuildService by inject<SetupGuildService>()
+    private val emuService by inject<EmuService>()
 
     private val updateQueueTimer = Timer(true)
 
@@ -93,9 +94,14 @@ class QueueMessageService : AutostartService, KoinComponent {
             }
             .collect()
 
+        val emuQueue = emuService.getQueue();
+
         val newMsgContent =
             """
             | ${matchService.printQueue()}
+            | 
+            | ${emuQueue.size} players waiting in Frankenbuild
+            | ${emuQueue.joinToString("\n")}
             | 
             | Use ${Config.emojis.join_queue} to join the queue.
             | Use ${Config.emojis.leave_queue} to leave the queue.   

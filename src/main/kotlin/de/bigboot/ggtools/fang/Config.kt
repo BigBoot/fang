@@ -45,11 +45,18 @@ data class PermissionConfig(
 )
 
 @JsonClass(generateAdapter = true)
+data class EmuConfig(
+    val url: String? = null,
+    val api_key: String? = null,
+)
+
+@JsonClass(generateAdapter = true)
 data class RootConfig(
     val bot: BotConfig,
     val database: DatabaseConfig = DatabaseConfig(),
     val emojis: EmojisConfig = EmojisConfig(),
     val permissions: PermissionConfig = PermissionConfig(),
+    val emu: EmuConfig = EmuConfig(),
 )
 
 private val moshi = Moshi.Builder().build()

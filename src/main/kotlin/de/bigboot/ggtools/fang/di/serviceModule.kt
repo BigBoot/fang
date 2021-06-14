@@ -5,6 +5,7 @@ import org.koin.dsl.bind
 import org.koin.dsl.module
 
 val serviceModule = module {
+    single { EmuServiceImpl() } bind EmuService::class
     single { MatchServiceImpl() } bind MatchService::class
     single { PermissionServiceImpl() } bind PermissionService::class
     single { ServerServiceImpl() } bind ServerService::class
