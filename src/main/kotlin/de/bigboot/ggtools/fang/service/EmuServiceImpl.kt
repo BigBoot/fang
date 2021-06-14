@@ -30,6 +30,6 @@ class EmuServiceImpl : EmuService, KoinComponent {
     }
 
     override suspend fun getQueue(): List<String> {
-        return client?.getQueue()?.players ?: emptyList()
+        return try { client?.getQueue()?.players ?: emptyList() } catch(t: Throwable) { emptyList() }
     }
 }
