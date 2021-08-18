@@ -13,7 +13,7 @@ class V4__add_queue_type : BaseJavaMigration() {
 
         context.connection.prepareStatement("""
         |alter table Players
-        |    add queue VARCHAR
+        |    add queue text
         """.trimMargin()).execute()
     }
 }
