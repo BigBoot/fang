@@ -29,11 +29,10 @@ class StatusUpdateService : AutostartService, KoinComponent {
     }
 
     private suspend fun updateStatus() {
-        val playersInQueue = matchService.getNumPlayers()
-        val playersInEmuQueue = emuService.getQueue().size
+        val playersInQueue = Config.bot.queues.map { matchService.getNumPlayers(it.name) }
 
         val status = when {
-            playersInQueue > 0 || playersInEmuQueue > 0 -> "$playersInQueue/$playersInEmuQueue players in queue"
+            playersInQueue.any { it > 0 } -> "${playersInQueue.joinToString("/")} players in queue"
             else -> LOOKING_AT[((System.currentTimeMillis() / (60 * 1000)) % LOOKING_AT.size).toInt()]
         }
 

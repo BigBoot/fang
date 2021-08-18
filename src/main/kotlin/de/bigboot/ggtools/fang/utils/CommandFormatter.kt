@@ -9,7 +9,7 @@ private fun buildCommandTree(command: Command, tree: StringBuilder, prefix: Stri
         false -> "├── "
     }
 
-    tree.appendln("$prefix$branch${command.name}")
+    tree.appendLine("$prefix$branch${command.name}")
 
     if (command is Command.Group) {
         command.commands.values.forEachIndexed { i, subcommand ->
@@ -23,7 +23,7 @@ private fun buildCommandTree(command: Command, tree: StringBuilder, prefix: Stri
         }
 
         if (!last) {
-            tree.appendln("$prefix│   ")
+            tree.appendLine("$prefix│   ")
         }
     }
 

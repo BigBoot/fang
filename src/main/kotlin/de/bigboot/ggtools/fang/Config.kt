@@ -27,6 +27,12 @@ data class DatabaseConfig(
 )
 
 @JsonClass(generateAdapter = true)
+data class QueueConfig(
+    val name: String,
+    val channel: String,
+)
+
+@JsonClass(generateAdapter = true)
 data class BotConfig(
     val token: String,
     val prefix: String = "!",
@@ -34,6 +40,7 @@ data class BotConfig(
     val statusupdate_poll_rate: Long = 2000L,
     val required_players: Int = 10,
     val log_level: String = "info",
+    val queues: List<QueueConfig> = listOf(),
 )
 
 @JsonClass(generateAdapter = true)

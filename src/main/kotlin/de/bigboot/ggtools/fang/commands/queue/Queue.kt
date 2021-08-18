@@ -1,37 +1,39 @@
 package de.bigboot.ggtools.fang.commands.queue
 
-import de.bigboot.ggtools.fang.CommandContext
 import de.bigboot.ggtools.fang.CommandGroupBuilder
 import de.bigboot.ggtools.fang.CommandGroupSpec
+import de.bigboot.ggtools.fang.Config
 import de.bigboot.ggtools.fang.service.MatchService
-import de.bigboot.ggtools.fang.utils.findChannel
 import de.bigboot.ggtools.fang.utils.findMember
 import discord4j.common.util.Snowflake
 import kotlinx.coroutines.reactive.awaitSingle
 import org.koin.core.inject
 
 class Queue : CommandGroupSpec("queue", "Commands for matchmaking") {
-    val matchService by inject<MatchService>()
-
-    val matchQueueMoved: suspend CommandContext.() -> Unit = {
-        val channelId = guild().findChannel("match-queue")
-        val channelText = channelId?.let { "<#$it>" } ?: "#match-queue"
-
-        channel().createMessage {
-            it.setContent("The queue has been moved to $channelText")
-        }.awaitSingle()
-    }
+    private val matchService by inject<MatchService>()
 
     override val build: CommandGroupBuilder.() -> Unit = {
-        command("join") { onCall(matchQueueMoved) }
-        command("leave") { onCall(matchQueueMoved) }
+        command("list", "show all available queues") {
+            onCall {
+                channel().createMessage { msg ->
+                    msg.addEmbed { embed ->
+                        embed.setTitle("Available queues:")
+                        embed.setDescription(Config.bot.queues.joinToString("\n") { it.name })
+                    }
+                }.awaitSingle()
+            }
+        }
 
         command("show", "show players currently in the queue") {
+            arg("queue", "the name of the queue")
+
             onCall {
+                val queue = args["queue"]
+
                 channel().createMessage {
-                    it.setEmbed { embed ->
-                        embed.setTitle("${matchService.getNumPlayers()} players waiting in queue")
-                        embed.setDescription(matchService.printQueue())
+                    it.addEmbed { embed ->
+                        embed.setTitle("${matchService.getNumPlayers(queue)} players waiting in queue")
+                        embed.setDescription(matchService.printQueue(queue))
                     }
                 }.awaitSingle()
             }
@@ -39,9 +41,11 @@ class Queue : CommandGroupSpec("queue", "Commands for matchmaking") {
 
         command("kick", "Kick a player from the queue") {
             arg("player", "the player to kick")
+            arg("queue", "the name of the queue")
 
             onCall {
                 val user = guild().findMember(args["player"])
+                val queue = args["queue"]
 
                 if (user == null) {
                     channel().createEmbed { embed ->
@@ -50,7 +54,7 @@ class Queue : CommandGroupSpec("queue", "Commands for matchmaking") {
                     return@onCall
                 }
 
-                matchService.leave(user.id.asLong())
+                matchService.leave(queue, user.id.asLong())
 
                 channel().createEmbed { embed ->
                     embed.setDescription("<@${user.id.asString()}> removed from the queue.")
@@ -60,9 +64,11 @@ class Queue : CommandGroupSpec("queue", "Commands for matchmaking") {
 
         command("request", "Request a match with less then 10 players") {
             arg("players", "the number of players")
+            arg("queue", "the name of the queue")
 
             onCall {
                 val players = args["players"].toIntOrNull()
+                val queue = args["queue"]
 
                 if (players == null) {
                     channel().createEmbed { embed ->
@@ -71,7 +77,7 @@ class Queue : CommandGroupSpec("queue", "Commands for matchmaking") {
                     return@onCall
                 }
 
-                matchService.request(Snowflake.of(message.userData.id()).asLong(), players)
+                matchService.request(queue, Snowflake.of(message.userData.id()).asLong(), players)
             }
         }
     }

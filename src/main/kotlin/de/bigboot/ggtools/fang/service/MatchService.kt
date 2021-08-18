@@ -2,31 +2,23 @@ package de.bigboot.ggtools.fang.service
 
 interface MatchService {
 
-    fun join(snowflake: Long): Boolean
+    fun join(queue: String, snowflake: Long): Boolean
 
-    fun leave(snowflake: Long, matchOnly: Boolean = false): Boolean
+    fun leave(queue: String, snowflake: Long, matchOnly: Boolean = false): Boolean
 
-    fun canPop(): Boolean
+    fun canPop(queue: String): Boolean
 
-    fun force()
+    fun force(queue: String)
 
-    fun request(player: Long, minPlayers: Int)
+    fun request(queue: String, player: Long, minPlayers: Int)
 
-    fun pop(previousPlayers: Collection<Long> = emptyList()): Pop
+    fun pop(queue: String, previousPlayers: Collection<Long> = emptyList()): Pop
 
-    fun getPlayers(): Collection<Player>
+    fun getPlayers(queue: String): Collection<Player>
 
-    fun getNumPlayers(): Long
+    fun getNumPlayers(queue: String): Long
 
-    fun isPlayerQueued(snowflake: Long): Boolean
-
-    fun printQueue(): String
-
-    fun setPlayerSkill(snowflake: Long, skill: Int)
-
-    fun getPlayerSkill(snowflake: Long): Int
-
-    fun createTeams(players: Collection<Long>): Pair<Collection<Long>, Collection<Long>>
+    fun printQueue(queue: String): String
 
     data class Player(
         val snowflake: Long,

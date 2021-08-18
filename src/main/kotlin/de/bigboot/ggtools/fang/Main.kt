@@ -26,7 +26,10 @@ suspend fun main() {
         .baselineVersion("0")
         .baselineOnMigrate(true)
         .load()
-        .migrate()
+        .apply {
+            repair()
+            migrate()
+        }
 
     val app = startKoin {
         logger(object : org.koin.core.logger.Logger() {

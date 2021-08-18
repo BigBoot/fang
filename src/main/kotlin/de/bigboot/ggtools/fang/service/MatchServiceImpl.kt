@@ -16,8 +16,8 @@ import kotlin.math.ceil
 
 class MatchServiceImpl : MatchService, KoinComponent {
     private val database: Database by inject()
-    private var force = false
-    private var request: MatchService.Request? = null
+    private var force = HashSet<String>()
+    private var requests = HashMap<String, MatchService.Request>()
 
     init {
         transaction(database) {
@@ -25,11 +25,13 @@ class MatchServiceImpl : MatchService, KoinComponent {
         }
     }
 
-    override fun join(snowflake: Long): Boolean {
+    override fun join(queue: String, snowflake: Long): Boolean {
         transaction {
-            val player = Player.find { Players.snowflake eq snowflake }.firstOrNull() ?: Player.new {
-                this.snowflake = snowflake
-                this.joined = System.currentTimeMillis()
+            val player = Player.find { (Players.snowflake eq snowflake) and (Players.queue eq queue) }
+                .firstOrNull() ?: Player.new {
+                    this.snowflake = snowflake
+                    this.joined = System.currentTimeMillis()
+                    this.queue = queue
             }
 
             player.inMatch = false
@@ -37,34 +39,35 @@ class MatchServiceImpl : MatchService, KoinComponent {
         return true
     }
 
-    override fun leave(snowflake: Long, matchOnly: Boolean): Boolean {
+    override fun leave(queue: String, snowflake: Long, matchOnly: Boolean): Boolean {
         return transaction {
             Players.deleteWhere {
                 when (matchOnly) {
-                    true -> (Players.snowflake eq snowflake) and (Players.inMatch eq true)
-                    false -> (Players.snowflake eq snowflake)
+                    true -> (Players.snowflake eq snowflake) and (Players.queue eq queue) and (Players.inMatch eq true)
+                    false -> (Players.snowflake eq snowflake) and (Players.queue eq queue)
                 }
             } != 0
         }
     }
 
-    override fun canPop(): Boolean = force || request != null || getNumPlayers() >= Config.bot.required_players
+    override fun canPop(queue: String): Boolean
+        = force.contains(queue) || requests.containsKey(queue) || getNumPlayers(queue) >= Config.bot.required_players
 
-    override fun force() {
-        force = true
+    override fun force(queue: String) {
+        force.add(queue)
     }
 
-    override fun request(player: Long, minPlayers: Int) {
-        request = MatchService.Request(player, minPlayers)
+    override fun request(queue: String, player: Long, minPlayers: Int) {
+        requests[queue] = MatchService.Request(player, minPlayers);
     }
 
-    override fun pop(previousPlayers: Collection<Long>): MatchService.Pop {
+    override fun pop(queue: String, previousPlayers: Collection<Long>): MatchService.Pop {
         val pop = MatchService.Pop(
-            forced = force,
-            request = request,
+            forced = force.contains(queue),
+            request = requests[queue],
             players = transaction {
                 Player
-                    .find { Players.inMatch eq false }
+                    .find { (Players.inMatch eq false) and (Players.queue eq queue) }
                     .asSequence()
                     .sortedBy { it.joined }
                     .take(kotlin.math.max(0, Config.bot.required_players - previousPlayers.size) )
@@ -75,63 +78,32 @@ class MatchServiceImpl : MatchService, KoinComponent {
             previousPlayers = previousPlayers
         )
 
-        force = false
-        request = null
+        force.remove(queue)
+        requests.remove(queue)
 
         return pop
     }
 
-    override fun getPlayers(): Collection<MatchService.Player> = transaction(database) {
+    override fun getPlayers(queue: String): Collection<MatchService.Player> = transaction(database) {
         Player
-            .find { Players.inMatch eq false }
+            .find { Players.queue eq queue }
+            .filter { Player.find { (Players.snowflake eq it.snowflake) and ((Players.inMatch eq true)) }.empty() }
             .map { MatchService.Player(it.snowflake, it.joined) }
     }
 
-    override fun getNumPlayers() = transaction(database) {
+    override fun getNumPlayers(queue: String) = transaction(database) {
         Player
-            .find { Players.inMatch eq false }
-            .count()
+            .find { Players.queue eq queue }
+            .count { Player.find { (Players.snowflake eq it.snowflake) and ((Players.inMatch eq true)) }.empty() }
+            .toLong()
     }
 
-    override fun isPlayerQueued(snowflake: Long) = transaction(database) {
-        !Player.find { Players.snowflake eq snowflake }.empty()
-    }
-
-    override fun printQueue(): String = when {
-        getNumPlayers() == 0L -> "No one in queue ${Config.emojis.queue_empty}."
-        else -> getPlayers().sortedBy { it.joined }.joinToString("\n") { player ->
+    override fun printQueue(queue: String): String = when {
+        getNumPlayers(queue) == 0L -> "No one in queue ${Config.emojis.queue_empty}."
+        else -> getPlayers(queue).sortedBy { it.joined }.joinToString("\n") { player ->
             val duration = ChronoUnit.MILLIS.between(Instant.ofEpochMilli(player.joined), Instant.now())
             "<@${player.snowflake}> (In queue for ${duration.milliSecondsToTimespan()})"
         }
-    }
-
-    override fun setPlayerSkill(snowflake: Long, skill: Int) = transaction(database) {
-        val user = User.find { Users.snowflake eq snowflake }.firstOrNull() ?: User.new {
-            this.snowflake = snowflake
-        }
-        user.skill = skill
-    }
-
-    override fun getPlayerSkill(snowflake: Long) = transaction(database) {
-        User.find { Users.snowflake eq snowflake }.firstOrNull()?.skill ?: 1
-    }
-
-    override fun createTeams(players: Collection<Long>): Pair<Collection<Long>, Collection<Long>> {
-        val playersWithSkill = players.map { Pair(it, getPlayerSkill(it)) }
-            .sortedByDescending { it.second + kotlin.random.Random.nextDouble() }
-
-        val teams = Pair(ArrayList<Pair<Long, Int>>(), ArrayList<Pair<Long, Int>>())
-
-        for (player in playersWithSkill) {
-            if(teams.first.size < ceil(players.size/2.0) && teams.first.sumBy { it.second } <= teams.second.sumBy { it.second }) {
-                teams.first.add(player)
-            }
-            else {
-                teams.second.add(player)
-            }
-        }
-
-        return Pair(teams.first.map { it.first }, teams.second.map { it.first })
     }
 }
 

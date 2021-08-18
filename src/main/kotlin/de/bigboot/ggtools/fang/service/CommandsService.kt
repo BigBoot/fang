@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.reactive.awaitSingle
 import org.koin.core.KoinComponent
 import org.koin.core.inject
+import java.util.Locale
 
 class CommandsService : AutostartService, KoinComponent {
     private val client: GatewayDiscordClient by inject()
@@ -40,7 +41,7 @@ class CommandsService : AutostartService, KoinComponent {
 
         var command: Command? = commands
         while (args.hasNext() && command is Command.Group) {
-            command = command.commands[args.next().toLowerCase()]
+            command = command.commands[args.next().lowercase(Locale.getDefault())]
         }
 
         if (command == null) {
@@ -74,7 +75,7 @@ class CommandsService : AutostartService, KoinComponent {
 
         when (command) {
             is Command.Invokable -> {
-                val argList = args.asSequence().toList();
+                val argList = args.asSequence().toList()
                 val commandArgs = createCommandArguments(command, argList)
                 if (commandArgs != null) {
                     val invalidArgs = verfiyCommandArguments(command, argList)

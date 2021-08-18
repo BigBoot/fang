@@ -12,10 +12,12 @@ class Player(id: EntityID<UUID>) : UUIDEntity(id) {
     var snowflake by Players.snowflake
     var joined by Players.joined
     var inMatch by Players.inMatch
+    var queue by Players.queue
 }
 
 object Players : UUIDTable() {
     val snowflake = long("snowflake")
     val joined = long("joined")
     val inMatch = bool("in_match").default(false)
+    val queue = text("queue")
 }

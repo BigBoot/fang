@@ -5,18 +5,18 @@ import de.bigboot.ggtools.fang.utils.*
 import discord4j.core.GatewayDiscordClient
 import discord4j.core.`object`.entity.Message
 import discord4j.core.`object`.entity.channel.MessageChannel
+import discord4j.core.`object`.entity.channel.TextChannel
 import discord4j.core.event.domain.message.ReactionAddEvent
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.reactive.awaitSingle
+import kotlinx.coroutines.reactor.awaitSingle
 import org.koin.core.KoinComponent
 import org.koin.core.inject
-import java.util.*
-import kotlin.collections.HashSet
+import java.util.Timer
+import java.util.TimerTask
 import kotlin.math.max
-import kotlin.time.minutes
-import kotlin.time.seconds
+import kotlin.time.Duration
 
 class QueueMessageService : AutostartService, KoinComponent {
     private val client by inject<GatewayDiscordClient>()
@@ -36,18 +36,28 @@ class QueueMessageService : AutostartService, KoinComponent {
             .launch()
 
         CoroutineScope(Dispatchers.Default).launch {
-            val queueMessage = setupGuildService.getQueueMessage()
 
-            client.eventDispatcher.on<ReactionAddEvent>()
-                .filter { it.messageId == queueMessage.msgId && it.channelId == queueMessage.channelId }
-                .onEachSafe { updateQueueMessage(it.message.awaitSingle()) }
-                .launch()
+            for (queue in Config.bot.queues)
+            {
+                val queueMessage = setupGuildService.getQueueMessage(queue.name)
+
+                client.eventDispatcher.on<ReactionAddEvent>()
+                    .filter { it.messageId == queueMessage.msgId && it.channelId == queueMessage.channelId }
+                    .onEachSafe { updateQueueMessage(queue.name, it.message.awaitSingle()) }
+                    .launch()
+            }
 
             updateQueueTimer.schedule(object : TimerTask() {
                 override fun run() {
                     @Suppress("BlockingMethodInNonBlockingContext")
                     runBlocking(Dispatchers.IO) {
-                        updateQueueMessage(client.getMessageById(queueMessage.channelId, queueMessage.msgId).awaitSingle())
+                        for (queue in Config.bot.queues) {
+                            val queueMessage = setupGuildService.getQueueMessage(queue.name)
+                            updateQueueMessage(
+                                queue.name,
+                                client.getMessageById(queueMessage.channelId, queueMessage.msgId).awaitSingle(),
+                            )
+                        }
                     }
                 }
             }, 0, 30000)
@@ -56,9 +66,13 @@ class QueueMessageService : AutostartService, KoinComponent {
                 override fun run() {
                     @Suppress("BlockingMethodInNonBlockingContext")
                     runBlocking(Dispatchers.IO) {
-                        if (matchService.canPop()) {
-                            val channel = client.getChannelById(queueMessage.channelId).awaitSingle() as MessageChannel
-                            handleQueuePop(matchService.pop(), channel)
+                        for (queue in Config.bot.queues) {
+                            val queueMessage = setupGuildService.getQueueMessage(queue.name)
+                            if (matchService.canPop(queue.name)) {
+                                val channel =
+                                    client.getChannelById(queueMessage.channelId).awaitSingle() as MessageChannel
+                                handleQueuePop(queue.name, matchService.pop(queue.name), channel)
+                            }
                         }
                     }
                 }
@@ -66,12 +80,12 @@ class QueueMessageService : AutostartService, KoinComponent {
         }
     }
 
-    private suspend fun updateQueueMessage(msg: Message) {
+    private suspend fun updateQueueMessage(queue: String, msg: Message) {
         msg.getReactors(Config.emojis.join_queue.asReaction())
             .flow()
             .filter { !it.isSelf() }
             .onEachSafe { user ->
-                matchService.join(user.id.asLong())
+                matchService.join(queue, user.id.asLong())
                 msg.removeReaction(Config.emojis.join_queue.asReaction(), user.id).await()
             }
             .collect()
@@ -80,7 +94,7 @@ class QueueMessageService : AutostartService, KoinComponent {
             .flow()
             .filter { !it.isSelf() }
             .onEachSafe { user ->
-                matchService.join(user.id.asLong())
+                matchService.join(queue, user.id.asLong())
                 msg.removeReaction(Config.emojis.join_queue.asReaction(), user.id).await()
             }
             .collect()
@@ -89,16 +103,16 @@ class QueueMessageService : AutostartService, KoinComponent {
             .flow()
             .filter { !it.isSelf() }
             .onEachSafe { user ->
-                matchService.leave(user.id.asLong())
+                matchService.leave(queue, user.id.asLong())
                 msg.removeReaction(Config.emojis.leave_queue.asReaction(), user.id).await()
             }
             .collect()
 
-        val emuQueue = emuService.getQueue();
+        val emuQueue = emuService.getQueue()
 
         val newMsgContent =
             """
-            | ${matchService.printQueue()}
+            | ${matchService.printQueue(queue)}
             | 
             | ${emuQueue.size} players waiting in Frankenbuild
             | ${emuQueue.joinToString("\n")}
@@ -109,15 +123,15 @@ class QueueMessageService : AutostartService, KoinComponent {
 
         if(newMsgContent != msg.embeds.firstOrNull()?.description?.orNull()) {
             msg.edit { edit ->
-                edit.setEmbed { embed ->
-                    embed.setTitle("${matchService.getNumPlayers()} players waiting in queue")
+                edit.addEmbed { embed ->
+                    embed.setTitle("${matchService.getNumPlayers(queue)} players waiting in queue")
                     embed.setDescription(newMsgContent)
                 }
             }.awaitSingle()
         }
     }
 
-    private suspend fun handleQueuePop(pop: MatchService.Pop, channel: MessageChannel) {
+    private suspend fun handleQueuePop(queue: String, pop: MatchService.Pop, channel: MessageChannel) {
         val players = pop.players + pop.previousPlayers
         val canDeny = pop.request != null
         val requiredPlayers = pop.request?.minPlayers ?: Config.bot.required_players
@@ -146,8 +160,8 @@ class QueueMessageService : AutostartService, KoinComponent {
 
             when {
                 accepted.count() >= requiredPlayers -> {
-                    message.edit {
-                        it.setEmbed { embed ->
+                    message.edit { msg ->
+                        msg.addEmbed { embed ->
                             embed.setTitle("Match ready!")
                             embed.setDescription("Everybody get ready, you've got a match.\nHave fun!\n\nPlease react with a ${Config.emojis.match_finished} after the match is finished to get added back to the queue.\nReact with a ${Config.emojis.match_drop} to drop out after this match.")
                             embed.addField("Players", players.joinToString(" ") { "<@$it>" }, true)
@@ -157,39 +171,39 @@ class QueueMessageService : AutostartService, KoinComponent {
                     message.removeAllReactions().await()
 
                     message.addReaction(Config.emojis.match_drop.asReaction()).awaitSafe()
-                    message.reactAfter(3.minutes, Config.emojis.match_finished.asReaction())
-                    message.deleteAfter(90.minutes) {
+                    message.reactAfter(Duration.minutes(3), Config.emojis.match_finished.asReaction())
+                    message.deleteAfter(Duration.minutes(90)) {
                         accepted.forEach {
-                            matchService.leave(it, true)
+                            matchService.leave(queue, it, true)
                         }
                     }
                 }
-                matchService.getNumPlayers() + accepted.size >= requiredPlayers -> {
-                    val repop = matchService.pop(accepted)
+                matchService.getNumPlayers(queue) + accepted.size >= requiredPlayers -> {
+                    val repop = matchService.pop(queue, accepted)
                     message.delete().await()
-                    handleQueuePop(repop, channel)
+                    handleQueuePop(queue, repop, channel)
                 }
                 else -> {
                     message.edit {
-                        it.setEmbed { embed ->
+                        it.addEmbed { embed ->
                             embed.setTitle("Match Cancelled!")
                             embed.setDescription("Not enough players accepted the match")
                         }
                     }.awaitSingle()
 
                     for (player in accepted) {
-                        matchService.join(player)
+                        matchService.join(queue, player)
                     }
-                    message.deleteAfter(5.minutes)
+                    message.deleteAfter(Duration.minutes(5))
                 }
             }
 
             for (player in denied) {
-                matchService.join(player)
+                matchService.join(queue, player)
             }
 
             for (player in missing) {
-                matchService.leave(player,)
+                matchService.leave(queue, player)
             }
         }
     }
@@ -227,7 +241,7 @@ class QueueMessageService : AutostartService, KoinComponent {
             }
 
             message.edit {
-                it.setEmbed { embed ->
+                it.addEmbed { embed ->
                     embed.setTitle("Match found!")
                     embed.setDescription(messageContent)
                     embed.addField("Time remaining: ", "${max(0, (endTime - System.currentTimeMillis()) / 1000)}", true)
@@ -249,6 +263,9 @@ class QueueMessageService : AutostartService, KoinComponent {
 
     private suspend fun handleReactMatchFinished(event: ReactionAddEvent) {
         val message = event.message.awaitSingle()
+        val channel = event.channel.awaitSingle() as? TextChannel
+
+        val queue = Config.bot.queues.find { it.channel == channel?.name }?.name ?: return
 
         val players = message
             .embeds
@@ -274,18 +291,18 @@ class QueueMessageService : AutostartService, KoinComponent {
         if (players.intersect(finished).size >= 3) {
 
             for (player in (players - dropped)) {
-                matchService.join(player)
+                matchService.join(queue, player)
             }
 
             message.edit {
-                it.setEmbed { embed ->
+                it.addEmbed { embed ->
                     embed.setTitle("Match finished!")
                     embed.setDescription("Players have rejoined the queue. Let's have another one!")
                 }
             }.awaitSingle()
 
             message.removeAllReactions().await()
-            message.deleteAfter(60.seconds)
+            message.deleteAfter(Duration.seconds(60))
         }
     }
 }

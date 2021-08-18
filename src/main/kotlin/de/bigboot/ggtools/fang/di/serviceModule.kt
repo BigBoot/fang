@@ -12,7 +12,6 @@ val serviceModule = module {
     single { ChangelogServiceImpl() } bind ChangelogService::class
 
     single { CommandsService() } bind AutostartService::class
-    single { QueueJoinNotificationService() } bind AutostartService::class
     single { QueueMessageService() } bind AutostartService::class
     single { SetupGuildServiceImpl() } bind AutostartService::class bind SetupGuildService::class
     single { StatusUpdateService() } bind AutostartService::class

@@ -4,8 +4,8 @@ import io.gitlab.arturbosch.detekt.Detekt
 plugins {
     application
 
-    kotlin("jvm") version "1.4.0"
-    kotlin("kapt") version "1.4.0"
+    kotlin("jvm") version "1.5.20"
+    kotlin("kapt") version "1.5.20"
 
     id("com.github.johnrengelman.shadow") version "6.0.0"
     id("io.gitlab.arturbosch.detekt").version("1.9.0")
@@ -32,17 +32,17 @@ dependencies {
     implementation(kotlin("reflect"))
 
     // kotlinx-coroutines & reactor extension
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.5")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor:1.3.9")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.1-native-mt")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor:1.5.1-native-mt")
 
     // Exposed
-    implementation("org.jetbrains.exposed:exposed-core:0.27.1")
-    implementation("org.jetbrains.exposed:exposed-dao:0.27.1")
-    implementation("org.jetbrains.exposed:exposed-jdbc:0.27.1")
+    implementation("org.jetbrains.exposed:exposed-core:0.33.1")
+    implementation("org.jetbrains.exposed:exposed-dao:0.33.1")
+    implementation("org.jetbrains.exposed:exposed-jdbc:0.33.1")
 
     // Databases
-    implementation("mysql:mysql-connector-java:8.0.21")
-    implementation("org.postgresql:postgresql:42.2.16")
+    implementation("mysql:mysql-connector-java:8.0.25")
+    implementation("org.postgresql:postgresql:42.2.23.jre7")
     // implementation("com.impossibl.pgjdbc-ng:pgjdbc-ng:0.8.3")
     // implementation("org.xerial:sqlite-jdbc:3.30.1")
     implementation("com.h2database:h2:1.4.200")
@@ -52,32 +52,32 @@ dependencies {
     implementation("org.koin:koin-core:2.1.5")
 
     // Discord4J
-    implementation("com.discord4j:discord4j-core:3.1.0")
+    implementation("com.discord4j:discord4j-core:3.1.7")
 
     // Retrofit
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
     implementation("com.squareup.retrofit2:converter-moshi:2.9.0")
 
     // Moshi
-    implementation("com.squareup.moshi:moshi-kotlin-codegen:1.10.0")
-    kapt("com.squareup.moshi:moshi-kotlin-codegen:1.10.0")
+    implementation("com.squareup.moshi:moshi-kotlin-codegen:1.12.0")
+    kapt("com.squareup.moshi:moshi-kotlin-codegen:1.12.0")
 
     // Toml
     implementation("org.tomlj:tomlj:1.0.0")
 
     // Logging
-    implementation("org.tinylog:tinylog-api-kotlin:2.2.0-M3")
-    implementation("org.tinylog:tinylog-impl:2.2.0-M3")
-    implementation("org.tinylog:slf4j-tinylog:2.2.0-M3")
+    implementation("org.tinylog:tinylog-api-kotlin:2.3.2")
+    implementation("org.tinylog:tinylog-impl:2.3.2")
+    implementation("org.tinylog:slf4j-tinylog:2.3.2")
 
     // Flyway
-    implementation("org.flywaydb:flyway-core:6.5.5")
+    implementation("org.flywaydb:flyway-core:7.12.1")
 
     // JUnit
-    testImplementation("org.junit.jupiter:junit-jupiter-api:5.7.0-RC1")
-    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.7.0-RC1")
+    testImplementation("org.junit.jupiter:junit-jupiter-api:5.7.2")
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.7.2")
 
-    detektPlugins("io.gitlab.arturbosch.detekt:detekt-formatting:1.12.0")
+    detektPlugins("io.gitlab.arturbosch.detekt:detekt-formatting:1.18.0")
 }
 
 tasks.withType<Test> {

@@ -23,6 +23,10 @@ private val CHANGELOG = listOf(
     listOf(
         "Added Frankenbuild queue",
     ),
+    listOf(
+        "Added support for multiple queues",
+        "Update dependencies",
+    ),
 )
 
 class ChangelogServiceImpl: KoinComponent, ChangelogService {
