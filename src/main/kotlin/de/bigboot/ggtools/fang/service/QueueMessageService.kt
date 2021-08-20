@@ -294,6 +294,10 @@ class QueueMessageService : AutostartService, KoinComponent {
                 matchService.join(queue, player)
             }
 
+            for (player in dropped) {
+                matchService.leave(queue, player)
+            }
+
             message.edit {
                 it.addEmbed { embed ->
                     embed.setTitle("Match finished!")

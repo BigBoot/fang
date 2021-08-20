@@ -27,6 +27,9 @@ private val CHANGELOG = listOf(
         "Added support for multiple queues",
         "Update dependencies",
     ),
+    listOf(
+        "Fixed a bug causing player to be unable to join a queue after using the dropout feature"
+    ),
 )
 
 class ChangelogServiceImpl: KoinComponent, ChangelogService {
