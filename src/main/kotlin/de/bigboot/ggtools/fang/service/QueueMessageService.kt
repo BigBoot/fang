@@ -2,6 +2,7 @@ package de.bigboot.ggtools.fang.service
 
 import de.bigboot.ggtools.fang.Config
 import de.bigboot.ggtools.fang.utils.*
+import discord4j.common.util.Snowflake
 import discord4j.core.GatewayDiscordClient
 import discord4j.core.`object`.entity.Message
 import discord4j.core.`object`.entity.channel.MessageChannel
@@ -22,7 +23,6 @@ class QueueMessageService : AutostartService, KoinComponent {
     private val client by inject<GatewayDiscordClient>()
     private val matchService by inject<MatchService>()
     private val setupGuildService by inject<SetupGuildService>()
-    private val emuService by inject<EmuService>()
 
     private val updateQueueTimer = Timer(true)
 
@@ -108,14 +108,9 @@ class QueueMessageService : AutostartService, KoinComponent {
             }
             .collect()
 
-        val emuQueue = emuService.getQueue()
-
         val newMsgContent =
             """
             | ${matchService.printQueue(queue)}
-            | 
-            | ${emuQueue.size} players waiting in Frankenbuild
-            | ${emuQueue.joinToString("\n")}
             | 
             | Use ${Config.emojis.join_queue} to join the queue.
             | Use ${Config.emojis.leave_queue} to leave the queue.   
@@ -153,6 +148,16 @@ class QueueMessageService : AutostartService, KoinComponent {
 
             else -> "A match is ready, please react with a ${Config.emojis.accept} to accept the match. " +
                     "You have ${Config.bot.accept_timeout} seconds to accept, otherwise you will be removed from the queue."
+        }
+
+        CoroutineScope(Dispatchers.IO).launch {
+            for (player in pop.players) {
+                client.getUserById(Snowflake.of(player)).awaitSafe()
+                    ?.privateChannel?.awaitSafe()
+                    ?.createMessage() { msg ->
+                        msg.setContent("There's a match ready for you, please head over to <#${channel.id.asString()}>")
+                    }?.awaitSafe()
+            }
         }
 
         CoroutineScope(Dispatchers.IO).launch {

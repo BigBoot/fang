@@ -65,7 +65,7 @@ class Server : CommandGroupSpec("server", "Commands for controlling servers") {
 
                 if (response.openUrl != null) {
                     channel().createEmbed {
-                        it.setDescription("open: ${response.openUrl}")
+                        it.setDescription("open ${response.openUrl}")
                     }.awaitSingle()
                 } else if (response.error != null) {
                     channel().createEmbed {

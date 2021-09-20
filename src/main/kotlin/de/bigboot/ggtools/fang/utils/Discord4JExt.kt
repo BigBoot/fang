@@ -84,8 +84,8 @@ fun User.isSelf() = client.selfId == id
 
 /** Channel **/
 suspend fun MessageChannel.clean() {
-    messages.doOnNext { it.delete().subscribe() }.awaitSafe()
+    messages().doOnNext { it.delete().subscribe() }.awaitSafe()
 }
 
-val MessageChannel.messages: Flux<Message> get()
-    = lastMessageId.orNull()?.let { getMessagesBefore(it) } ?: Flux.empty() 
+suspend fun MessageChannel.messages(): Flux<Message>
+    = lastMessage?.awaitSafe()?.let { Flux.just(it).concatWith(getMessagesBefore(it.id)) } ?: Flux.empty()

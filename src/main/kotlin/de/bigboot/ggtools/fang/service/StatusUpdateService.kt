@@ -14,7 +14,6 @@ import java.util.*
 class StatusUpdateService : AutostartService, KoinComponent {
     private val client: GatewayDiscordClient by inject()
     private val matchService by inject<MatchService>()
-    private val emuService by inject<EmuService>()
 
     private val updateStatusTimer = Timer(true)
 

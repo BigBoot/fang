@@ -30,6 +30,11 @@ private val CHANGELOG = listOf(
     listOf(
         "Fixed a bug causing player to be unable to join a queue after using the dropout feature"
     ),
+    listOf(
+        "Fix connect string when starting a server using fang",
+        "Fix queue channel cleanup",
+        "Send a DM to all players when a match is ready",
+    ),
 )
 
 class ChangelogServiceImpl: KoinComponent, ChangelogService {
