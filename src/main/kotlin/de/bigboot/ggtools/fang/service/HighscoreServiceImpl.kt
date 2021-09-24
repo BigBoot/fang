@@ -49,7 +49,9 @@ class HighscoreServiceImpl : HighscoreService, AutostartService, KoinComponent {
             .flatMap { matchService.getPlayers(it.name) }
             .map { HighscoreService.Entry(it.snowflake, time - it.joined) }
 
-        val oldscores = transaction { Highscore.all().map { HighscoreService.Entry(it.snowflake, it.score) } }.toList()
+        val oldscores = transaction { Highscore.all().map { HighscoreService.Entry(it.snowflake, it.score) } }
+            .sortedByDescending { it.score }
+            .toList()
 
         highscores = (oldscores + players)
             .groupBy { it.snowflake }
