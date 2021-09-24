@@ -1,10 +1,7 @@
 package de.bigboot.ggtools.fang.service
 
 import de.bigboot.ggtools.fang.Config
-import de.bigboot.ggtools.fang.db.Player
-import de.bigboot.ggtools.fang.db.Players
-import de.bigboot.ggtools.fang.db.User
-import de.bigboot.ggtools.fang.db.Users
+import de.bigboot.ggtools.fang.db.*
 import de.bigboot.ggtools.fang.utils.milliSecondsToTimespan
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -16,6 +13,8 @@ import kotlin.math.ceil
 
 class MatchServiceImpl : MatchService, KoinComponent {
     private val database: Database by inject()
+    private val highscoreService: HighscoreService by inject()
+
     private var force = HashSet<String>()
     private var requests = HashMap<String, MatchService.Request>()
 
@@ -29,9 +28,12 @@ class MatchServiceImpl : MatchService, KoinComponent {
         transaction {
             val player = Player.find { (Players.snowflake eq snowflake) and (Players.queue eq queue) }
                 .firstOrNull() ?: Player.new {
-                    this.snowflake = snowflake
-                    this.joined = System.currentTimeMillis()
-                    this.queue = queue
+
+                this.snowflake = snowflake
+                this.joined = System.currentTimeMillis()
+                this.queue = queue
+
+                Highscore.find { Highscores.snowflake eq snowflake }.forEach { it.offset = 0 }
             }
 
             player.inMatch = false
