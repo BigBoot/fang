@@ -35,6 +35,9 @@ private val CHANGELOG = listOf(
         "Fix queue channel cleanup",
         "Send a DM to all players when a match is ready",
     ),
+    listOf(
+        "Added queue highscores",
+    ),
 )
 
 class ChangelogServiceImpl: KoinComponent, ChangelogService {

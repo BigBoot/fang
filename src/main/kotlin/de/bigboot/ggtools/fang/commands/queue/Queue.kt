@@ -3,14 +3,17 @@ package de.bigboot.ggtools.fang.commands.queue
 import de.bigboot.ggtools.fang.CommandGroupBuilder
 import de.bigboot.ggtools.fang.CommandGroupSpec
 import de.bigboot.ggtools.fang.Config
+import de.bigboot.ggtools.fang.service.HighscoreService
 import de.bigboot.ggtools.fang.service.MatchService
 import de.bigboot.ggtools.fang.utils.findMember
 import discord4j.common.util.Snowflake
 import kotlinx.coroutines.reactive.awaitSingle
 import org.koin.core.inject
+import java.time.Duration
 
 class Queue : CommandGroupSpec("queue", "Commands for matchmaking") {
     private val matchService by inject<MatchService>()
+    private val highscoreService by inject<HighscoreService>()
 
     override val build: CommandGroupBuilder.() -> Unit = {
         command("list", "show all available queues") {
@@ -78,6 +81,15 @@ class Queue : CommandGroupSpec("queue", "Commands for matchmaking") {
                 }
 
                 matchService.request(queue, Snowflake.of(message.userData.id()).asLong(), players)
+            }
+        }
+
+        command("highscores", "Show the queue highscores") {
+            onCall {
+                channel().createEmbed { embed ->
+                    embed.setTitle("Queue Highscores")
+                    embed.setDescription(highscoreService.printHighscore())
+                }.awaitSingle()
             }
         }
     }

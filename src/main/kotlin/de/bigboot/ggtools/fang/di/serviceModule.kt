@@ -15,4 +15,5 @@ val serviceModule = module {
     single { QueueMessageService() } bind AutostartService::class
     single { SetupGuildServiceImpl() } bind AutostartService::class bind SetupGuildService::class
     single { StatusUpdateService() } bind AutostartService::class
+    single { HighscoreServiceImpl() } bind AutostartService::class bind HighscoreService::class
 }
