@@ -51,8 +51,8 @@ class HighscoreServiceImpl : HighscoreService, AutostartService, KoinComponent {
             .toList()
 
         val players = Config.bot.queues
-            .flatMap { matchService.getPlayers(it.name) }
-            .map { HighscoreService.Entry(it.snowflake, time - it.joined) }
+            .flatMap { matchService.getPlayers(it.name).map { player -> Pair(it.name, player) } }
+            .map { HighscoreService.Entry(it.second.snowflake, time - it.second.joined, it.first) }
             .groupBy { it.snowflake }
             .map { it.value.maxByOrNull { entry -> entry.score }!! }
 
@@ -60,7 +60,7 @@ class HighscoreServiceImpl : HighscoreService, AutostartService, KoinComponent {
                 Highscore.all()
                     .orderBy(Highscores.score to SortOrder.DESC)
                     .limit(10)
-                    .map { HighscoreService.Entry(it.snowflake, it.score) }
+                    .map { HighscoreService.Entry(it.snowflake, it.score, it.queue) }
             }
             .toList()
 
@@ -75,6 +75,7 @@ class HighscoreServiceImpl : HighscoreService, AutostartService, KoinComponent {
 
                 highscore.score = highscore.score - highscore.offset + player.score
                 highscore.offset = player.score
+                highscore.queue = player.queue
             }
         }
 
@@ -82,7 +83,7 @@ class HighscoreServiceImpl : HighscoreService, AutostartService, KoinComponent {
                 Highscore.all()
                     .orderBy(Highscores.score to SortOrder.DESC)
                     .limit(10)
-                    .map { HighscoreService.Entry(it.snowflake, it.score) }
+                    .map { HighscoreService.Entry(it.snowflake, it.score, it.queue) }
             }
             .toList()
 

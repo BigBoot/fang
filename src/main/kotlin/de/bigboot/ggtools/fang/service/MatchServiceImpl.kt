@@ -32,8 +32,6 @@ class MatchServiceImpl : MatchService, KoinComponent {
                 this.snowflake = snowflake
                 this.joined = System.currentTimeMillis()
                 this.queue = queue
-
-                Highscore.find { Highscores.snowflake eq snowflake }.forEach { it.offset = 0 }
             }
 
             player.inMatch = false
@@ -43,12 +41,18 @@ class MatchServiceImpl : MatchService, KoinComponent {
 
     override fun leave(queue: String, snowflake: Long, matchOnly: Boolean): Boolean {
         return transaction {
-            Players.deleteWhere {
+            val result = Players.deleteWhere {
                 when (matchOnly) {
                     true -> (Players.snowflake eq snowflake) and (Players.queue eq queue) and (Players.inMatch eq true)
                     false -> (Players.snowflake eq snowflake) and (Players.queue eq queue)
                 }
             } != 0
+
+            if(result) {
+                Highscore.find { (Highscores.snowflake eq snowflake) and (Highscores.queue eq queue) }.forEach { it.offset = 0 }
+            }
+
+            result
         }
     }
 
