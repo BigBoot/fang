@@ -52,9 +52,9 @@ class HighscoreServiceImpl : HighscoreService, AutostartService, KoinComponent {
 
         val players = Config.bot.queues
             .flatMap { matchService.getPlayers(it.name) }
-            .groupBy { it.snowflake }
-            .map { it.value.first() }
             .map { HighscoreService.Entry(it.snowflake, time - it.joined) }
+            .groupBy { it.snowflake }
+            .map { it.value.maxByOrNull { entry -> entry.score }!! }
 
         val oldscores = transaction(database) {
                 Highscore.all()
