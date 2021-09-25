@@ -13,7 +13,7 @@ import kotlin.math.ceil
 
 class MatchServiceImpl : MatchService, KoinComponent {
     private val database: Database by inject()
-    private val highscoreService: HighscoreService by inject()
+    private val notificationService by inject<NotificationService>()
 
     private var force = HashSet<String>()
     private var requests = HashMap<String, MatchService.Request>()
@@ -108,7 +108,11 @@ class MatchServiceImpl : MatchService, KoinComponent {
         getNumPlayers(queue) == 0L -> "No one in queue ${Config.emojis.queue_empty}."
         else -> getPlayers(queue).sortedBy { it.joined }.joinToString("\n") { player ->
             val duration = ChronoUnit.MILLIS.between(Instant.ofEpochMilli(player.joined), Instant.now())
-            "<@${player.snowflake}> (In queue for ${duration.milliSecondsToTimespan()})"
+            val notification = when(notificationService.getDirectMessageNotificationsEnabled(player.snowflake)) {
+                true -> Config.emojis.dm_notifications_enabled
+                false -> Config.emojis.dm_notifications_disabled
+            }
+            "<@${player.snowflake}> $notification (In queue for ${duration.milliSecondsToTimespan()})"
         }
     }
 }

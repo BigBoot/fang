@@ -38,6 +38,9 @@ private val CHANGELOG = listOf(
     listOf(
         "Added queue highscores",
     ),
+    listOf(
+        "Added toggle to enable/disable dm notifications",
+    ),
 )
 
 class ChangelogServiceImpl: KoinComponent, ChangelogService {

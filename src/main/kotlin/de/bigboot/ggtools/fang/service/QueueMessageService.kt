@@ -1,6 +1,8 @@
 package de.bigboot.ggtools.fang.service
 
 import de.bigboot.ggtools.fang.Config
+import de.bigboot.ggtools.fang.db.Notification
+import de.bigboot.ggtools.fang.db.Notifications
 import de.bigboot.ggtools.fang.utils.*
 import discord4j.common.util.Snowflake
 import discord4j.core.GatewayDiscordClient
@@ -12,6 +14,8 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.reactor.awaitSingle
+import org.jetbrains.exposed.sql.Database
+import org.jetbrains.exposed.sql.transactions.transaction
 import org.koin.core.KoinComponent
 import org.koin.core.inject
 import java.util.Timer
@@ -23,6 +27,7 @@ class QueueMessageService : AutostartService, KoinComponent {
     private val client by inject<GatewayDiscordClient>()
     private val matchService by inject<MatchService>()
     private val setupGuildService by inject<SetupGuildService>()
+    private val notificationService by inject<NotificationService>()
 
     private val updateQueueTimer = Timer(true)
 
@@ -90,15 +95,6 @@ class QueueMessageService : AutostartService, KoinComponent {
             }
             .collect()
 
-        msg.getReactors(Config.emojis.join_queue.asReaction())
-            .flow()
-            .filter { !it.isSelf() }
-            .onEachSafe { user ->
-                matchService.join(queue, user.id.asLong())
-                msg.removeReaction(Config.emojis.join_queue.asReaction(), user.id).await()
-            }
-            .collect()
-
         msg.getReactors(Config.emojis.leave_queue.asReaction())
             .flow()
             .filter { !it.isSelf() }
@@ -108,12 +104,22 @@ class QueueMessageService : AutostartService, KoinComponent {
             }
             .collect()
 
+        msg.getReactors(Config.emojis.dm_notifications_enabled.asReaction())
+            .flow()
+            .filter { !it.isSelf() }
+            .onEachSafe { user ->
+                notificationService.toggleDirectMessageNotifications(user.id.asLong())
+                msg.removeReaction(Config.emojis.dm_notifications_enabled.asReaction(), user.id).await()
+            }
+            .collect()
+
         val newMsgContent =
             """
             | ${matchService.printQueue(queue)}
             | 
             | Use ${Config.emojis.join_queue} to join the queue.
             | Use ${Config.emojis.leave_queue} to leave the queue.   
+            | Use ${Config.emojis.dm_notifications_enabled} to toggle dm notifications.   
             """.trimMargin()
 
         if(newMsgContent != msg.embeds.firstOrNull()?.description?.orNull()) {
@@ -152,11 +158,7 @@ class QueueMessageService : AutostartService, KoinComponent {
 
         CoroutineScope(Dispatchers.IO).launch {
             for (player in pop.players) {
-                client.getUserById(Snowflake.of(player)).awaitSafe()
-                    ?.privateChannel?.awaitSafe()
-                    ?.createMessage() { msg ->
-                        msg.setContent("There's a match ready for you, please head over to <#${channel.id.asString()}>")
-                    }?.awaitSafe()
+                notificationService.notify(player, channel.id.asLong())
             }
         }
 
