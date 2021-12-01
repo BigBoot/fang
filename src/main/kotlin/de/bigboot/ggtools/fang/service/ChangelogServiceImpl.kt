@@ -41,6 +41,14 @@ private val CHANGELOG = listOf(
     listOf(
         "Added toggle to enable/disable dm notifications",
     ),
+    listOf(
+        "Fixed output of 'sudo admin group users list' command",
+        "Removed 'server players' command",
+        "Comp queue will no longer count towards highscores",
+        "Highscore message will no longer ping the person",
+        "When getting afk kicked from queue, the player will lose the highscore from this session",
+        "Added 'admin highscores' commands",
+    ),
 )
 
 class ChangelogServiceImpl: KoinComponent, ChangelogService {

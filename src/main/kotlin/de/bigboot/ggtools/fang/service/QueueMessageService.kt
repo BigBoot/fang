@@ -170,7 +170,7 @@ class QueueMessageService : AutostartService, KoinComponent {
                     message.edit { msg ->
                         msg.addEmbed { embed ->
                             embed.setTitle("Match ready!")
-                            embed.setDescription("Everybody get ready, you've got a match.\nHave fun!\n\nPlease react with a ${Config.emojis.match_finished} after the match is finished to get added back to the queue.\nReact with a ${Config.emojis.match_drop} to drop out after this match.")
+                            embed.setDescription("Everybody get ready, you've got a match.\nHave fun!\n\nPlease react with a ${Config.emojis.match_finished} after the match is finished.\nReact with a ${Config.emojis.match_drop} to drop out after this match.")
                             embed.addField("Players", players.joinToString(" ") { "<@$it>" }, true)
                         }
                     }.awaitSingle()
@@ -210,7 +210,7 @@ class QueueMessageService : AutostartService, KoinComponent {
             }
 
             for (player in missing) {
-                matchService.leave(queue, player)
+                matchService.leave(queue, player, resetScore = true)
             }
         }
     }
@@ -290,10 +290,12 @@ class QueueMessageService : AutostartService, KoinComponent {
         val finished = message.getReactors(Config.emojis.match_finished.asReaction())
             .map { it.id.asLong() }
             .await()
+            .toSet()
 
         val dropped = message.getReactors(Config.emojis.match_drop.asReaction())
             .map { it.id.asLong() }
             .await()
+            .toSet()
 
         if (players.intersect(finished).size >= 3) {
 

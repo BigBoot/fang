@@ -10,6 +10,7 @@ class Admin : CommandGroupSpec("admin", "Admin commands") {
     override val build: CommandGroupBuilder.() -> Unit = {
         group(Server())
         group(Group())
+        group(Highscores())
         
          command("restart", "restart the bot") {
             onCall {

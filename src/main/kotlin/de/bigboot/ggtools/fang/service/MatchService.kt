@@ -4,7 +4,7 @@ interface MatchService {
 
     fun join(queue: String, snowflake: Long): Boolean
 
-    fun leave(queue: String, snowflake: Long, matchOnly: Boolean = false): Boolean
+    fun leave(queue: String, snowflake: Long, matchOnly: Boolean = false, resetScore: Boolean = false): Boolean
 
     fun canPop(queue: String): Boolean
 

@@ -32,6 +32,7 @@ data class DatabaseConfig(
 data class QueueConfig(
     val name: String,
     val channel: String,
+    val enable_highscore: Boolean = false,
 )
 
 @JsonClass(generateAdapter = true)

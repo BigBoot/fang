@@ -8,10 +8,7 @@ import discord4j.core.GatewayDiscordClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.runBlocking
-import org.jetbrains.exposed.sql.Database
-import org.jetbrains.exposed.sql.SortOrder
-import org.jetbrains.exposed.sql.and
-import org.jetbrains.exposed.sql.deleteAll
+import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.koin.core.KoinComponent
 import org.koin.core.inject
@@ -51,6 +48,7 @@ class HighscoreServiceImpl : HighscoreService, AutostartService, KoinComponent {
             .toList()
 
         val players = Config.bot.queues
+            .filter { it.enable_highscore }
             .flatMap { matchService.getPlayers(it.name).map { player -> Pair(it.name, player) } }
             .map { HighscoreService.Entry(it.second.snowflake, time - it.second.joined, it.first) }
             .groupBy { it.snowflake }
@@ -93,13 +91,19 @@ class HighscoreServiceImpl : HighscoreService, AutostartService, KoinComponent {
             if(old == -1 || old > new) {
                 for (channel in channels)
                 {
-                    channel.createMessage { msg ->
-                        msg.setContent("Congratulations <@${entry.snowflake}> you're now ranked #${new+1} in the queue highscores.")
+                    channel.createEmbed { msg ->
+                        msg.setDescription("Congratulations <@${entry.snowflake}> you're now ranked #${new+1} in the queue highscores.")
                     }.awaitSafe()
                 }
             }
         }
     }
+
+    override suspend fun resetAll(): Unit
+        = transaction(database) { Highscores.deleteAll() }
+
+    override suspend fun reset(snowflake: Long): Unit
+        = transaction(database) { Highscores.deleteWhere { Highscores.snowflake eq snowflake } }
 
     override fun printHighscore(): String = highscores.mapIndexed { index, entry ->
         "${(index+1).asReaction().print()} ${entry.score.milliSecondsToTimespan()} <@${entry.snowflake}>"

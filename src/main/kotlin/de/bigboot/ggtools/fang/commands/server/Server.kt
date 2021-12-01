@@ -111,33 +111,6 @@ class Server : CommandGroupSpec("server", "Commands for controlling servers") {
             }
         }
 
-        command("players", "List current players in a server") {
-            arg("server", "The name of the server, use `list_servers` to get a list of servers")
-            arg("instance_id", "The id of the instance, optional if the server only has a single instance", true)
-
-            onCall {
-                val server = args["server"]
-                val instanceID = args.optional("instance_id")?.toIntOrNull() ?: 0
-
-                val client = serverService.getClient(server)
-
-                if (client == null) {
-                    channel().createEmbed {
-                        it.setDescription("Unknown server $server.")
-                    }.awaitSingle()
-
-                    return@onCall
-                }
-
-                val response = client.getPlayers(instanceID)
-                channel().createEmbed {
-                    it.setDescription("Players:\n" + response.joinToString("\n") { player ->
-                        "${player.name} -> ${player.hero ?: "Selecting"}"
-                    })
-                }.awaitSingle()
-            }
-        }
-
         command("admin_pw", "Get the admin password for a running instance.") {
             arg("server", "The name of the server")
             arg("instance_id", "The id of the instance, optional if the server only has a single instance", true)

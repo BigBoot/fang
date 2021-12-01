@@ -116,7 +116,7 @@ class Users : CommandGroupSpec("users", "Commands for managing users") {
 
                 channel().createEmbed { embed ->
                     embed.setTitle("Users in group: $group")
-                    embed.setDescription(users.joinToString("\n"))
+                    embed.setDescription(users.joinToString("\n") { "<@${it.snowflake}>" })
                 }.awaitSingle()
             }
         }

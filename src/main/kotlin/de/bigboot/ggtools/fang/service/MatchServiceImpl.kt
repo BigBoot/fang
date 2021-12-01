@@ -39,7 +39,7 @@ class MatchServiceImpl : MatchService, KoinComponent {
         return true
     }
 
-    override fun leave(queue: String, snowflake: Long, matchOnly: Boolean): Boolean {
+    override fun leave(queue: String, snowflake: Long, matchOnly: Boolean, resetScore: Boolean): Boolean {
         return transaction {
             val result = Players.deleteWhere {
                 when (matchOnly) {
@@ -49,7 +49,11 @@ class MatchServiceImpl : MatchService, KoinComponent {
             } != 0
 
             if(result) {
-                Highscore.find { (Highscores.snowflake eq snowflake) and (Highscores.queue eq queue) }.forEach { it.offset = 0 }
+                if(resetScore) {
+                    Highscore.find { (Highscores.snowflake eq snowflake) and (Highscores.queue eq queue) }.forEach { it.score -= it.offset; it.offset = 0 }
+                } else {
+                    Highscore.find { (Highscores.snowflake eq snowflake) and (Highscores.queue eq queue) }.forEach { it.offset = 0 }
+                }
             }
 
             result
