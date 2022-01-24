@@ -73,7 +73,7 @@ dependencies {
     implementation("org.tinylog:slf4j-tinylog:2.4.1")
 
     // Flyway
-    implementation("org.flywaydb:flyway-core:8.4.1")
+    implementation("org.flywaydb:flyway-core:7.12.1")
 
     // JUnit
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.8.2")
