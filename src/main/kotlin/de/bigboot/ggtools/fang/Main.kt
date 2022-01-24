@@ -41,17 +41,24 @@ suspend fun main() {
         koin.createRootScope()
     }
 
-    Flyway
-        .configure()
-        .locations(Main::class.java.`package`.name.replace(".", "/"))
-        .dataSource(app.koin.get<DataSource>())
-        .baselineVersion("0")
-        .baselineOnMigrate(true)
-        .load()
-        .apply {
-            repair()
-            migrate()
-        }
+    val currentThread = Thread.currentThread()
+    val originalLoader = currentThread.contextClassLoader
+    currentThread.contextClassLoader = Main::class.java.classLoader
+    try {
+        Flyway
+            .configure()
+            .locations(Main::class.java.`package`.name.replace(".", "/"))
+            .dataSource(app.koin.get<DataSource>())
+            .baselineVersion("0")
+            .baselineOnMigrate(true)
+            .load()
+            .apply {
+                repair()
+                migrate()
+            }
+    } finally {
+        currentThread.contextClassLoader = originalLoader
+    }
 
     app.koin.getAll<AutostartService>()
     app.koin.get<GatewayDiscordClient>().onDisconnect().awaitSingle()
