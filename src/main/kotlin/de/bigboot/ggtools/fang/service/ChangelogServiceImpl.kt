@@ -49,6 +49,10 @@ private val CHANGELOG = listOf(
         "When getting afk kicked from queue, the player will lose the highscore from this session",
         "Added 'admin highscores' commands",
     ),
+    listOf(
+        "Updated dependencies",
+        "Added HikariCP database connection pooling",
+    ),
 )
 
 class ChangelogServiceImpl: KoinComponent, ChangelogService {

@@ -65,7 +65,7 @@ class SetupGuildServiceImpl : AutostartService, SetupGuildService, KoinComponent
 
         val secretChannel = event.guild.channels
             .flow()
-            .firstOrNull { it.name == "secret-hub" } as? MessageChannel
+            .firstOrNull { it.name == "host-update" } as? MessageChannel
 
         if(secretChannel != null) {
             val changelog = changelogService.changelog
