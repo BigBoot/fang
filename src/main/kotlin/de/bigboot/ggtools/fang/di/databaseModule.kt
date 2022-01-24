@@ -10,6 +10,7 @@ import javax.sql.DataSource
 
 val databaseModule = module {
     single { HikariConfig().apply {
+        dataSourceClassName = Config.database.driver
         jdbcUrl = Config.database.url
         username = Config.database.user
         password = Config.database.pass
