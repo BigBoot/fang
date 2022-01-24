@@ -13,23 +13,12 @@ import org.koin.core.logger.Level
 import org.koin.core.logger.Level.*
 import org.koin.core.logger.MESSAGE
 import org.tinylog.kotlin.Logger
+import javax.sql.DataSource
 
 class Main
 
 suspend fun main() {
     org.tinylog.configuration.Configuration.set("level", Config.bot.log_level)
-
-    Flyway
-        .configure()
-        .locations(Main::class.java.`package`.name.replace(".", "/"))
-        .dataSource(Config.database.url, Config.database.user, Config.database.pass)
-        .baselineVersion("0")
-        .baselineOnMigrate(true)
-        .load()
-        .apply {
-            repair()
-            migrate()
-        }
 
     val app = startKoin {
         logger(object : org.koin.core.logger.Logger() {
@@ -51,6 +40,18 @@ suspend fun main() {
         ))
         koin.createRootScope()
     }
+
+    Flyway
+        .configure()
+        .locations(Main::class.java.`package`.name.replace(".", "/"))
+        .dataSource(app.koin.get<DataSource>())
+        .baselineVersion("0")
+        .baselineOnMigrate(true)
+        .load()
+        .apply {
+            repair()
+            migrate()
+        }
 
     app.koin.getAll<AutostartService>()
     app.koin.get<GatewayDiscordClient>().onDisconnect().awaitSingle()
