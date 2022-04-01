@@ -210,7 +210,7 @@ class QueueMessageService : AutostartService, KoinComponent {
             }
 
             for (player in missing) {
-                matchService.leave(queue, player, resetScore = true)
+                matchService.leave(queue, player, resetScore = false)
             }
         }
     }
