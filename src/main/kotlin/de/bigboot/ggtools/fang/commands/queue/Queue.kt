@@ -80,6 +80,13 @@ class Queue : CommandGroupSpec("queue", "Commands for matchmaking") {
                     return@onCall
                 }
 
+                if (players <= 0) {
+                    channel().createEmbed { embed ->
+                            embed.setDescription("You need at least 1 player to request a match!")
+                    }.awaitSingle()
+                    return@onCall
+                }
+
                 matchService.request(queue, Snowflake.of(message.userData.id()).asLong(), players)
             }
         }
