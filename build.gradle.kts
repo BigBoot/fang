@@ -7,9 +7,9 @@ plugins {
     kotlin("jvm") version "1.7.20"
     kotlin("kapt") version "1.7.20"
 
-    id("com.github.johnrengelman.shadow") version "6.0.0"
+    id("com.github.johnrengelman.shadow") version "7.1.2"
     id("io.gitlab.arturbosch.detekt").version("1.21.0")
-    id("com.github.ben-manes.versions") version "0.41.0"
+    id("com.github.ben-manes.versions") version "0.42.0"
     id("se.patrikerdes.use-latest-versions") version "0.2.18"
 }
 
@@ -71,14 +71,14 @@ dependencies {
     implementation("org.tinylog:slf4j-tinylog:2.5.0")
 
     // Flyway
-    implementation("org.flywaydb:flyway-core:9.3.0")
-    implementation("org.flywaydb:flyway-mysql:9.3.0")
+    implementation("org.flywaydb:flyway-core:9.4.0")
+    implementation("org.flywaydb:flyway-mysql:9.4.0")
 
     // JUnit
-    testImplementation("org.junit.jupiter:junit-jupiter-api:5.9.0")
-    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.9.0")
+    testImplementation("org.junit.jupiter:junit-jupiter-api:5.9.1")
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.9.1")
 
-    detektPlugins("io.gitlab.arturbosch.detekt:detekt-formatting:1.21.0")
+    detektPlugins("io.gitlab.arturbosch.detekt:detekt-formatting:1.22.0-RC1")
 }
 
 tasks.withType<Test> {
