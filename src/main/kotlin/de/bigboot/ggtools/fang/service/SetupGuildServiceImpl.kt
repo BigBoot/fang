@@ -7,8 +7,8 @@ import discord4j.core.`object`.entity.channel.MessageChannel
 import discord4j.core.event.domain.guild.GuildCreateEvent
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.reactive.awaitSingle
-import org.koin.core.KoinComponent
-import org.koin.core.inject
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 import org.tinylog.Logger
 import reactor.core.publisher.Mono
 import java.lang.Exception
@@ -28,8 +28,7 @@ class SetupGuildServiceImpl : AutostartService, SetupGuildService, KoinComponent
     private suspend fun handleGuildCreateEvent(event: GuildCreateEvent) {
         Logger.info { "Joined Guild: ${event.guild.name}" }
 
-        for (queue in Config.bot.queues)
-        {
+        for (queue in Config.bot.queues) {
             val future = queueMessages.getOrPut(queue.name) { CompletableFuture<SetupGuildService.QueueMessage>() }
 
             val queueChannel = event.guild.channels
@@ -41,9 +40,9 @@ class SetupGuildServiceImpl : AutostartService, SetupGuildService, KoinComponent
 
                 queueChannel.clean()
 
-                val queueMsg = queueChannel.createMessage {
-                    it.addEmbed { embed ->
-                        embed.setDescription("...")
+                val queueMsg = queueChannel.createMessageCompat {
+                    addEmbedCompat {
+                        description("...")
                     }
                 }.awaitSingle()
 
@@ -51,14 +50,13 @@ class SetupGuildServiceImpl : AutostartService, SetupGuildService, KoinComponent
                 queueMsg.addReaction(Config.emojis.leave_queue.asReaction()).await()
                 queueMsg.addReaction(Config.emojis.dm_notifications_enabled.asReaction()).await()
 
-                queueChannel.createMessage {
+                queueChannel.createMessageCompat {
                     @Suppress("MagicNumber")
-                    it.setContent("-".repeat(32))
+                    content("-".repeat(32))
                 }.awaitSafe()
 
                 future.complete(SetupGuildService.QueueMessage(queueMsg.id, queueChannel.id))
-            }
-            else {
+            } else {
                 future.completeExceptionally(Exception("Unable to find ${queue.channel} channel"))
             }
         }
@@ -67,14 +65,14 @@ class SetupGuildServiceImpl : AutostartService, SetupGuildService, KoinComponent
             .flow()
             .firstOrNull { it.name == "host-update" } as? MessageChannel
 
-        if(secretChannel != null) {
+        if (secretChannel != null) {
             val changelog = changelogService.changelog
             Logger.info { "Found secret channel! Posting changelog: ${changelog.isNotEmpty()}!" }
 
-            if(changelog.isNotEmpty()) {
-                secretChannel.createEmbed {
-                    it.setTitle("I'm even better now!")
-                    it.addField("Changes", changelog.joinToString("\n") { change -> "• $change" }, false)
+            if (changelog.isNotEmpty()) {
+                secretChannel.createEmbedCompat {
+                    title("I'm even better now!")
+                    addField("Changes", changelog.joinToString("\n") { change -> "• $change" }, false)
                 }.awaitSafe()
             }
         }

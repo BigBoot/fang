@@ -3,9 +3,10 @@ package de.bigboot.ggtools.fang.commands.admin.group
 import de.bigboot.ggtools.fang.CommandGroupBuilder
 import de.bigboot.ggtools.fang.CommandGroupSpec
 import de.bigboot.ggtools.fang.service.PermissionService
+import de.bigboot.ggtools.fang.utils.createEmbedCompat
 import de.bigboot.ggtools.fang.utils.findMember
 import kotlinx.coroutines.reactive.awaitSingle
-import org.koin.core.inject
+import org.koin.core.component.inject
 
 class Users : CommandGroupSpec("users", "Commands for managing users") {
     val permissionService by inject<PermissionService>()
@@ -20,21 +21,21 @@ class Users : CommandGroupSpec("users", "Commands for managing users") {
                 val user = guild().findMember(userName)
 
                 if (user == null) {
-                    channel().createEmbed { embed ->
-                        embed.setDescription("User $userName not found")
+                    channel().createEmbedCompat {
+                        description("User $userName not found")
                     }.awaitSingle()
                     return@onCall
                 }
 
                 val groups = permissionService.getGroupsByUser(user.id.asLong())
 
-                channel().createEmbed { embed ->
-                    embed.setTitle("Permissions of ${user.displayName}")
+                channel().createEmbedCompat {
+                    title("Permissions of ${user.displayName}")
                     groups.forEach { group ->
-                        embed.addField(group.first, group.second.joinToString("\n").ifBlank { "-" }, false)
+                        addField(group.first, group.second.joinToString("\n").ifBlank { "-" }, false)
                     }
                     if (groups.isEmpty()) {
-                        embed.setDescription("User <@${user.id.asString()}> doesn't have any permissions")
+                        description("User <@${user.id.asString()}> doesn't have any permissions")
                     }
                 }.awaitSingle()
                 return@onCall
@@ -52,14 +53,14 @@ class Users : CommandGroupSpec("users", "Commands for managing users") {
                 val user = guild().findMember(userName)
 
                 if (user == null) {
-                    channel().createEmbed { embed ->
-                        embed.setDescription("User $userName not found")
+                    channel().createEmbedCompat {
+                        description("User $userName not found")
                     }.awaitSingle()
                     return@onCall
                 }
 
-                channel().createEmbed { embed ->
-                    embed.setDescription(
+                channel().createEmbedCompat {
+                    description(
                         when {
                             permissionService.addUserToGroup(
                                 user.id.asLong(),
@@ -83,14 +84,14 @@ class Users : CommandGroupSpec("users", "Commands for managing users") {
                 val user = guild().findMember(userName)
 
                 if (user == null) {
-                    channel().createEmbed { embed ->
-                        embed.setDescription("User $userName not found")
+                    channel().createEmbedCompat {
+                        description("User $userName not found")
                     }.awaitSingle()
                     return@onCall
                 }
 
-                channel().createEmbed { embed ->
-                    embed.setDescription(
+                channel().createEmbedCompat {
+                    description(
                         when {
                             permissionService.removeUserFromGroup(user.id.asLong(), group) -> "<@${user.id.asString()}> has been removed from the group $group"
                             else -> "Group $group not found"
@@ -108,15 +109,15 @@ class Users : CommandGroupSpec("users", "Commands for managing users") {
                 val users = permissionService.getUsersByGroup(group)
 
                 if (users == null) {
-                    channel().createEmbed { embed ->
-                        embed.setDescription("Group $group not found")
+                    channel().createEmbedCompat {
+                        description("Group $group not found")
                     }.awaitSingle()
                     return@onCall
                 }
 
-                channel().createEmbed { embed ->
-                    embed.setTitle("Users in group: $group")
-                    embed.setDescription(users.joinToString("\n") { "<@${it.snowflake}>" })
+                channel().createEmbedCompat {
+                    title("Users in group: $group")
+                    description(users.joinToString("\n") { "<@${it.snowflake}>" })
                 }.awaitSingle()
             }
         }

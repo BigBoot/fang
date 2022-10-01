@@ -31,7 +31,7 @@ token = "<Discord Bot Token>"  # Required <1>
 # log_level = "info"
 
 [database]
-## Available drivers: "org.h2.Driver" | "com.mysql.cj.jdbc.Driver" | "org.postgresql.Driver"
+## Available drivers: "org.h2.Driver" | "com.mysql.cj.jdbc.Driver"
 # driver = "org.h2.Driver" 
 # url = "jdbc:h2:./fang"
 # user = ""

@@ -9,7 +9,7 @@ fun String.asReaction(): ReactionEmoji = emojiRegex.find(this)?.let {
     ReactionEmoji.custom(Snowflake.of(id), name, animated.isNotBlank())
 } ?: ReactionEmoji.unicode(this)
 
-fun Int.asReaction(): ReactionEmoji = ReactionEmoji.unicode(when(this) {
+fun Int.asReaction(): ReactionEmoji = ReactionEmoji.unicode(when (this) {
     0 -> "0️⃣"
     1 -> "1️⃣"
     2 -> "2️⃣"

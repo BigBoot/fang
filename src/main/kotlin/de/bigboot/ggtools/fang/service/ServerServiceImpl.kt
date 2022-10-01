@@ -8,8 +8,8 @@ import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
-import org.koin.core.KoinComponent
-import org.koin.core.inject
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
 import java.util.Locale
@@ -26,7 +26,6 @@ class ServerServiceImpl : ServerService, KoinComponent {
         }
     }
 
-    @Suppress("UNUSED_PARAMETER")
     override suspend fun checkServer(name: String, url: String, apiKey: String): Boolean {
         try {
             val client = createClient(url, apiKey)

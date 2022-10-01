@@ -9,8 +9,8 @@ import discord4j.core.`object`.entity.channel.MessageChannel
 import discord4j.core.event.domain.message.MessageCreateEvent
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.reactive.awaitSingle
-import org.koin.core.KoinComponent
-import org.koin.core.inject
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 import java.util.Locale
 
 class CommandsService : AutostartService, KoinComponent {
@@ -45,8 +45,8 @@ class CommandsService : AutostartService, KoinComponent {
         }
 
         if (command == null) {
-            msg.channel.awaitSingle().createEmbed { embed ->
-                embed.setDescription("Unknown command: $text")
+            msg.channel.awaitSingle().createEmbedCompat {
+                description("Unknown command: $text")
             }.awaitSingle()
 
             return
@@ -66,8 +66,8 @@ class CommandsService : AutostartService, KoinComponent {
             }
 
         if (!hasPermission) {
-            msg.channel.awaitSingle().createEmbed { embed ->
-                embed.setDescription("You do not have permissions to use this command")
+            msg.channel.awaitSingle().createEmbedCompat {
+                description("You do not have permissions to use this command")
             }.awaitSingle()
 
             return
@@ -79,7 +79,7 @@ class CommandsService : AutostartService, KoinComponent {
                 val commandArgs = createCommandArguments(command, argList)
                 if (commandArgs != null) {
                     val invalidArgs = verfiyCommandArguments(command, argList)
-                    if(invalidArgs.isEmpty()) {
+                    if (invalidArgs.isEmpty()) {
                         command.handler(CommandContext(commandArgs, msg))
                     } else {
                         printInvalidArguments(msg.channel.awaitSingle(), command, invalidArgs)
@@ -111,28 +111,32 @@ class CommandsService : AutostartService, KoinComponent {
             .filter { it.first.verifier?.invoke(it.second) == false }
     }
 
-    private suspend fun printInvalidArguments(channel: MessageChannel, command: Command.Invokable, args: Collection<Pair<Argument, String>>) {
-        channel.createEmbed { embed ->
-            embed.setTitle("Usage: ${formatCommandHelp(command.fullname, command)}")
-            embed.setDescription(args.joinToString("\n") { "Invalid value for argument ${it.first.name}: ${it.second}\nExpected: ${it.first.description}" })
+    private suspend fun printInvalidArguments(
+        channel: MessageChannel,
+        command: Command.Invokable,
+        args: Collection<Pair<Argument, String>>
+    ) {
+        channel.createEmbedCompat {
+            title("Usage: ${formatCommandHelp(command.fullname, command)}")
+            description(args.joinToString("\n") { "Invalid value for argument ${it.first.name}: ${it.second}\nExpected: ${it.first.description}" })
         }.awaitSingle()
     }
 
     private suspend fun printCommandHelp(channel: MessageChannel, command: Command) {
-        channel.createEmbed { embed ->
-            embed.setTitle("Usage: ${formatCommandHelp(command.fullname, command)}")
-            embed.setDescription(command.description)
+        channel.createEmbedCompat {
+            title("Usage: ${formatCommandHelp(command.fullname, command)}")
+            description(command.description)
 
             when (command) {
                 is Command.Invokable -> {
-                    embed.addField(
+                    addField(
                         "arguments",
                         command.args.joinToString("\n\n") { "*${it.name}*\n${it.description}" },
                         false
                     )
                 }
                 is Command.Group -> {
-                    embed.addField(
+                    addField(
                         "subcommands",
                         command.commands.values.joinToString("\n\n") {
                             "${formatCommandHelp(

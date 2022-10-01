@@ -1,8 +1,7 @@
 package de.bigboot.ggtools.fang.service
 
-import de.bigboot.ggtools.fang.db.Server
 import de.bigboot.ggtools.fang.api.ServerApi
-import org.jetbrains.exposed.sql.*
+import de.bigboot.ggtools.fang.db.Server
 
 interface ServerService {
 

@@ -3,8 +3,11 @@ package de.bigboot.ggtools.fang.commands.admin
 import de.bigboot.ggtools.fang.CommandGroupBuilder
 import de.bigboot.ggtools.fang.CommandGroupSpec
 import de.bigboot.ggtools.fang.service.ServerService
+import de.bigboot.ggtools.fang.utils.addEmbedCompat
+import de.bigboot.ggtools.fang.utils.createEmbedCompat
+import de.bigboot.ggtools.fang.utils.editCompat
 import kotlinx.coroutines.reactive.awaitSingle
-import org.koin.core.inject
+import org.koin.core.component.inject
 
 class Server : CommandGroupSpec("server", "Commands for managing servers") {
     private val serverService by inject<ServerService>()
@@ -20,21 +23,21 @@ class Server : CommandGroupSpec("server", "Commands for managing servers") {
                 val url = args["url"]
                 val apiKey = args["api_key"]
 
-                val msg = channel().createEmbed {
-                    it.setDescription("Adding $name to the list of servers")
+                val msg = channel().createEmbedCompat {
+                    description("Adding $name to the list of servers")
                 }.awaitSingle()
 
                 if (serverService.checkServer(name, url, apiKey)) {
                     serverService.addServer(name, url, apiKey)
-                    msg.edit { edit ->
-                        edit.addEmbed {
-                            it.setDescription("Adding $name to the list of servers -> Success")
+                    msg.editCompat {
+                        addEmbedCompat {
+                            description("Adding $name to the list of servers -> Success")
                         }
                     }.awaitSingle()
                 } else {
-                    msg.edit { edit ->
-                        edit.addEmbed {
-                            it.setDescription("Adding $name to the list of servers -> Failed")
+                    msg.editCompat {
+                        addEmbedCompat {
+                            description("Adding $name to the list of servers -> Failed")
                         }
                     }.awaitSingle()
                 }
@@ -49,12 +52,12 @@ class Server : CommandGroupSpec("server", "Commands for managing servers") {
 
                 if (serverService.getClient(name) != null) {
                     serverService.removeServer(name)
-                    channel().createEmbed {
-                        it.setDescription("$name removed from the list of servers.")
+                    channel().createEmbedCompat {
+                        description("$name removed from the list of servers.")
                     }.awaitSingle()
                 } else {
-                    channel().createEmbed {
-                        it.setDescription("$name not the list of servers.")
+                    channel().createEmbedCompat {
+                        description("$name not the list of servers.")
                     }.awaitSingle()
                 }
             }

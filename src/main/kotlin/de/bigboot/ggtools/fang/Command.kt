@@ -1,19 +1,19 @@
 package de.bigboot.ggtools.fang
 
-import org.koin.core.KoinComponent
+import org.koin.core.component.KoinComponent
 
 data class Argument(
     val name: String,
     val description: String,
     val optional: Boolean,
-    val verifier: ((String)->Boolean)? = null,
+    val verifier: ((String) -> Boolean)? = null,
 )
 
 interface Commands {
     val commands: Map<String, Command>
 }
 
-abstract class CommandGroupSpec(val name: String, val description: String): KoinComponent {
+abstract class CommandGroupSpec(val name: String, val description: String) : KoinComponent {
     abstract val build: CommandGroupBuilder.() -> Unit
 }
 
@@ -21,7 +21,12 @@ sealed class Command(val name: String, val description: String) {
     var parent: Command? = null
         internal set
 
-    class Invokable(name: String, description: String, val args: Array<Argument>, val handler: suspend CommandContext.() -> Unit) :
+    class Invokable(
+        name: String,
+        description: String,
+        val args: Array<Argument>,
+        val handler: suspend CommandContext.() -> Unit
+    ) :
         Command(name, description)
 
     class Group(name: String, description: String, override val commands: Map<String, Command>) :
@@ -60,7 +65,7 @@ class CommandBuilder(private val name: String, private val description: String) 
     private var handler: suspend CommandContext.() -> Unit = {}
     private var args = ArrayList<Argument>()
 
-    fun arg(name: String, description: String = "", optional: Boolean = false, verify: ((String)->Boolean)? = null) {
+    fun arg(name: String, description: String = "", optional: Boolean = false, verify: ((String) -> Boolean)? = null) {
         this.args.add(Argument(name, description, optional, verify))
     }
 

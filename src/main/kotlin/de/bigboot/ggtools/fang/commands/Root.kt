@@ -5,12 +5,10 @@ import de.bigboot.ggtools.fang.CommandGroupSpec
 import de.bigboot.ggtools.fang.commands.admin.Admin
 import de.bigboot.ggtools.fang.commands.queue.Queue
 import de.bigboot.ggtools.fang.commands.server.Server
-import de.bigboot.ggtools.fang.service.MatchService
+import de.bigboot.ggtools.fang.utils.createEmbedCompat
 import de.bigboot.ggtools.fang.utils.formatCommandHelp
 import de.bigboot.ggtools.fang.utils.formatCommandTree
-import discord4j.common.util.Snowflake
 import kotlinx.coroutines.reactive.awaitFirst
-import org.koin.core.inject
 
 class Root : CommandGroupSpec("", "") {
     override val build: CommandGroupBuilder.() -> Unit = {
@@ -20,9 +18,9 @@ class Root : CommandGroupSpec("", "") {
 
         command("help", "show this help") {
             onCall {
-                channel().createEmbed { embed ->
-                    embed.setTitle("Help")
-                    embed.addField(
+                channel().createEmbedCompat {
+                    title("Help")
+                    addField(
                         "commands",
                         commands.values.joinToString("\n\n") {
                             "${formatCommandHelp(
@@ -38,9 +36,9 @@ class Root : CommandGroupSpec("", "") {
 
         command("commands", "Show all available commands") {
             onCall {
-                channel().createEmbed { embed ->
-                    embed.setTitle("Commands")
-                    embed.setDescription("```\n${formatCommandTree(commands.values)}\n```")
+                channel().createEmbedCompat {
+                    title("Commands")
+                    description("```\n${formatCommandTree(commands.values)}\n```")
                 }.awaitFirst()
             }
         }

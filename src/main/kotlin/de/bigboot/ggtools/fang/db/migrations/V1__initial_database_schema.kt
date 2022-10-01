@@ -35,7 +35,7 @@ class V1__initial_database_schema : BaseJavaMigration() {
         |        primary key,
         |    snowflake bigint               not null,
         |    joined    bigint               not null,
-        |    in_match  tinyint(1) default 0 not null
+        |    in_match  tinyint    default 0 not null
         |);
         """.trimMargin()).execute()
 
@@ -62,13 +62,13 @@ class V1__initial_database_schema : BaseJavaMigration() {
         context.connection.prepareStatement("""
         |create table if not exists UsersGroups
         |(
-        |    user    binary(16) not null,
-        |    `group` binary(16) not null,
-        |    primary key (user, `group`),
+        |    `user`    binary(16) not null,
+        |    `group`   binary(16) not null,
+        |    primary key (`user`, `group`),
         |    constraint fk_UsersGroups_group_id
         |        foreign key (`group`) references `Groups` (id),
         |    constraint fk_UsersGroups_user_id
-        |        foreign key (user) references Users (id)
+        |        foreign key (`user`) references Users (id)
         |);
         """.trimMargin()).execute()
     }

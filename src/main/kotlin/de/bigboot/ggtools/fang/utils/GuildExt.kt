@@ -1,3 +1,5 @@
+@file:Suppress("unused")
+
 package de.bigboot.ggtools.fang.utils
 
 import discord4j.common.util.Snowflake
@@ -7,7 +9,7 @@ import discord4j.core.`object`.entity.channel.MessageChannel
 import kotlinx.coroutines.reactive.awaitFirstOrNull
 import java.util.Locale
 
-private val userRegex = Regex("""<@!(\d+)>""")
+private val userRegex = Regex("""<@!?(\d+)>""")
 suspend fun Guild.findMember(name: String): Member? {
     return when {
         userRegex.matches(name) -> getMemberById(Snowflake.of(userRegex.find(name)!!.groupValues[1])).awaitFirstOrNull()

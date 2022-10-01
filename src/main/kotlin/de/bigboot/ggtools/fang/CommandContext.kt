@@ -4,8 +4,8 @@ import discord4j.core.`object`.entity.Guild
 import discord4j.core.`object`.entity.Message
 import discord4j.core.`object`.entity.channel.MessageChannel
 import kotlinx.coroutines.reactive.awaitSingle
-import org.koin.core.KoinComponent
-import org.koin.core.inject
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 
 data class CommandContext(
     val args: Arguments,
@@ -20,6 +20,5 @@ data class CommandContext(
     class Arguments(private val arguments: Map<String, String>) {
         operator fun get(key: String) = arguments.getValue(key)
         fun optional(key: String) = arguments[key]
-        fun has(key: String) = arguments.containsKey(key)
     }
 }

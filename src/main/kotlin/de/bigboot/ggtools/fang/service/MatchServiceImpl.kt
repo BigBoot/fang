@@ -1,15 +1,17 @@
 package de.bigboot.ggtools.fang.service
 
 import de.bigboot.ggtools.fang.Config
-import de.bigboot.ggtools.fang.db.*
+import de.bigboot.ggtools.fang.db.Player
+import de.bigboot.ggtools.fang.db.Players
 import de.bigboot.ggtools.fang.utils.milliSecondsToTimespan
-import org.jetbrains.exposed.sql.*
+import org.jetbrains.exposed.sql.Database
+import org.jetbrains.exposed.sql.and
+import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.transactions.transaction
-import org.koin.core.KoinComponent
-import org.koin.core.inject
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 import java.time.Instant
 import java.time.temporal.ChronoUnit
-import kotlin.math.ceil
 
 class MatchServiceImpl : MatchService, KoinComponent {
     private val database: Database by inject()
@@ -48,27 +50,19 @@ class MatchServiceImpl : MatchService, KoinComponent {
                 }
             } != 0
 
-            if(result) {
-                if(resetScore) {
-                    Highscore.find { (Highscores.snowflake eq snowflake) and (Highscores.queue eq queue) }.forEach { it.score -= it.offset; it.offset = 0 }
-                } else {
-                    Highscore.find { (Highscores.snowflake eq snowflake) and (Highscores.queue eq queue) }.forEach { it.offset = 0 }
-                }
-            }
-
             result
         }
     }
 
-    override fun canPop(queue: String): Boolean
-        = force.contains(queue) || requests.containsKey(queue) || getNumPlayers(queue) >= Config.bot.required_players
+    override fun canPop(queue: String): Boolean =
+        force.contains(queue) || requests.containsKey(queue) || getNumPlayers(queue) >= Config.bot.required_players
 
     override fun force(queue: String) {
         force.add(queue)
     }
 
     override fun request(queue: String, player: Long, minPlayers: Int) {
-        requests[queue] = MatchService.Request(player, minPlayers);
+        requests[queue] = MatchService.Request(player, minPlayers)
     }
 
     override fun pop(queue: String, previousPlayers: Collection<Long>): MatchService.Pop {
@@ -80,7 +74,7 @@ class MatchServiceImpl : MatchService, KoinComponent {
                     .find { (Players.inMatch eq false) and (Players.queue eq queue) }
                     .asSequence()
                     .sortedBy { it.joined }
-                    .take(kotlin.math.max(0, Config.bot.required_players - previousPlayers.size) )
+                    .take(kotlin.math.max(0, Config.bot.required_players - previousPlayers.size))
                     .onEach { it.inMatch = true }
                     .map { it.snowflake }
                     .toList()
@@ -112,7 +106,7 @@ class MatchServiceImpl : MatchService, KoinComponent {
         getNumPlayers(queue) == 0L -> "No one in queue ${Config.emojis.queue_empty}."
         else -> getPlayers(queue).sortedBy { it.joined }.joinToString("\n") { player ->
             val duration = ChronoUnit.MILLIS.between(Instant.ofEpochMilli(player.joined), Instant.now())
-            val notification = when(notificationService.getDirectMessageNotificationsEnabled(player.snowflake)) {
+            val notification = when (notificationService.getDirectMessageNotificationsEnabled(player.snowflake)) {
                 true -> Config.emojis.dm_notifications_enabled
                 false -> Config.emojis.dm_notifications_disabled
             }
@@ -120,4 +114,3 @@ class MatchServiceImpl : MatchService, KoinComponent {
         }
     }
 }
-

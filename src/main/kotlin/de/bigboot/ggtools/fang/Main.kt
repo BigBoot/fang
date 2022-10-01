@@ -32,13 +32,12 @@ suspend fun main() {
             }
         })
 
-        koin.loadModules(listOf(
+        modules(
             databaseModule,
             serviceModule,
             commandsModule,
             discordModule,
-        ))
-        koin.createRootScope()
+        )
     }
 
     val currentThread = Thread.currentThread()
@@ -63,4 +62,3 @@ suspend fun main() {
     app.koin.getAll<AutostartService>()
     app.koin.get<GatewayDiscordClient>().onDisconnect().awaitSingle()
 }
-

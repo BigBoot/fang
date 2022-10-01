@@ -1,27 +1,22 @@
 package de.bigboot.ggtools.fang.service
 
 import de.bigboot.ggtools.fang.Config
-import de.bigboot.ggtools.fang.db.Notification
-import de.bigboot.ggtools.fang.db.Notifications
 import de.bigboot.ggtools.fang.utils.*
-import discord4j.common.util.Snowflake
 import discord4j.core.GatewayDiscordClient
+import discord4j.core.event.domain.message.ReactionAddEvent
 import discord4j.core.`object`.entity.Message
 import discord4j.core.`object`.entity.channel.MessageChannel
 import discord4j.core.`object`.entity.channel.TextChannel
-import discord4j.core.event.domain.message.ReactionAddEvent
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.reactor.awaitSingle
-import org.jetbrains.exposed.sql.Database
-import org.jetbrains.exposed.sql.transactions.transaction
-import org.koin.core.KoinComponent
-import org.koin.core.inject
-import java.util.Timer
-import java.util.TimerTask
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
+import java.util.*
 import kotlin.math.max
-import kotlin.time.Duration
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 
 class QueueMessageService : AutostartService, KoinComponent {
     private val client by inject<GatewayDiscordClient>()
@@ -30,7 +25,6 @@ class QueueMessageService : AutostartService, KoinComponent {
     private val notificationService by inject<NotificationService>()
 
     private val updateQueueTimer = Timer(true)
-
 
     init {
         client.eventDispatcher.on<ReactionAddEvent>()
@@ -42,8 +36,7 @@ class QueueMessageService : AutostartService, KoinComponent {
 
         CoroutineScope(Dispatchers.Default).launch {
 
-            for (queue in Config.bot.queues)
-            {
+            for (queue in Config.bot.queues) {
                 val queueMessage = setupGuildService.getQueueMessage(queue.name)
 
                 client.eventDispatcher.on<ReactionAddEvent>()
@@ -54,7 +47,6 @@ class QueueMessageService : AutostartService, KoinComponent {
 
             updateQueueTimer.schedule(object : TimerTask() {
                 override fun run() {
-                    @Suppress("BlockingMethodInNonBlockingContext")
                     runBlocking(Dispatchers.IO) {
                         for (queue in Config.bot.queues) {
                             val queueMessage = setupGuildService.getQueueMessage(queue.name)
@@ -69,7 +61,6 @@ class QueueMessageService : AutostartService, KoinComponent {
 
             updateQueueTimer.schedule(object : TimerTask() {
                 override fun run() {
-                    @Suppress("BlockingMethodInNonBlockingContext")
                     runBlocking(Dispatchers.IO) {
                         for (queue in Config.bot.queues) {
                             val queueMessage = setupGuildService.getQueueMessage(queue.name)
@@ -122,11 +113,11 @@ class QueueMessageService : AutostartService, KoinComponent {
             | Use ${Config.emojis.dm_notifications_enabled} to toggle dm notifications.   
             """.trimMargin()
 
-        if(newMsgContent != msg.embeds.firstOrNull()?.description?.orNull()) {
-            msg.edit { edit ->
-                edit.addEmbed { embed ->
-                    embed.setTitle("${matchService.getNumPlayers(queue)} players waiting in queue")
-                    embed.setDescription(newMsgContent)
+        if (newMsgContent != msg.embeds.firstOrNull()?.description?.orNull()) {
+            msg.editCompat {
+                addEmbedCompat {
+                    title("${matchService.getNumPlayers(queue)} players waiting in queue")
+                    description(newMsgContent)
                 }
             }.awaitSingle()
         }
@@ -137,8 +128,8 @@ class QueueMessageService : AutostartService, KoinComponent {
         val canDeny = pop.request != null
         val requiredPlayers = pop.request?.minPlayers ?: Config.bot.required_players
 
-        val message = channel.createMessage {
-            it.setContent(players.joinToString(" ") { player -> "<@$player>" })
+        val message = channel.createMessageCompat {
+            content(players.joinToString(" ") { player -> "<@$player>" })
         }.awaitSingle()
 
         message.addReaction(Config.emojis.accept.asReaction()).await()
@@ -167,19 +158,19 @@ class QueueMessageService : AutostartService, KoinComponent {
 
             when {
                 accepted.count() >= requiredPlayers -> {
-                    message.edit { msg ->
-                        msg.addEmbed { embed ->
-                            embed.setTitle("Match ready!")
-                            embed.setDescription("Everybody get ready, you've got a match.\nHave fun!\n\nPlease react with a ${Config.emojis.match_finished} after the match is finished.\nReact with a ${Config.emojis.match_drop} to drop out after this match.")
-                            embed.addField("Players", players.joinToString(" ") { "<@$it>" }, true)
+                    message.editCompat {
+                        addEmbedCompat {
+                            title("Match ready!")
+                            description("Everybody get ready, you've got a match.\nHave fun!\n\nPlease react with a ${Config.emojis.match_finished} after the match is finished.\nReact with a ${Config.emojis.match_drop} to drop out after this match.")
+                            addField("Players", players.joinToString(" ") { "<@$it>" }, true)
                         }
                     }.awaitSingle()
 
                     message.removeAllReactions().await()
 
                     message.addReaction(Config.emojis.match_drop.asReaction()).awaitSafe()
-                    message.reactAfter(Duration.minutes(3), Config.emojis.match_finished.asReaction())
-                    message.deleteAfter(Duration.minutes(90)) {
+                    message.reactAfter(3.minutes, Config.emojis.match_finished.asReaction())
+                    message.deleteAfter(90.minutes) {
                         accepted.forEach {
                             matchService.leave(queue, it, true)
                         }
@@ -191,17 +182,17 @@ class QueueMessageService : AutostartService, KoinComponent {
                     handleQueuePop(queue, repop, channel)
                 }
                 else -> {
-                    message.edit {
-                        it.addEmbed { embed ->
-                            embed.setTitle("Match Cancelled!")
-                            embed.setDescription("Not enough players accepted the match")
+                    message.editCompat {
+                        addEmbedCompat {
+                            title("Match Cancelled!")
+                            description("Not enough players accepted the match")
                         }
                     }.awaitSingle()
 
                     for (player in accepted) {
                         matchService.join(queue, player)
                     }
-                    message.deleteAfter(Duration.minutes(5))
+                    message.deleteAfter(5.minutes)
                 }
             }
 
@@ -247,13 +238,13 @@ class QueueMessageService : AutostartService, KoinComponent {
                 break
             }
 
-            message.edit {
-                it.addEmbed { embed ->
-                    embed.setTitle("Match found!")
-                    embed.setDescription(messageContent)
-                    embed.addField("Time remaining: ", "${max(0, (endTime - System.currentTimeMillis()) / 1000)}", true)
+            message.editCompat {
+                addEmbedCompat {
+                    title("Match found!")
+                    description(messageContent)
+                    addField("Time remaining: ", "${max(0, (endTime - System.currentTimeMillis()) / 1000)}", true)
                     if (missing.isNotEmpty()) {
-                        embed.addField(
+                        addField(
                             "Missing players: ",
                             missing.joinToString(" ") { player -> "<@$player>" },
                             true
@@ -307,15 +298,15 @@ class QueueMessageService : AutostartService, KoinComponent {
                 matchService.leave(queue, player)
             }
 
-            message.edit {
-                it.addEmbed { embed ->
-                    embed.setTitle("Match finished!")
-                    embed.setDescription("Players have rejoined the queue. Let's have another one!")
+            message.editCompat {
+                addEmbedCompat {
+                    title("Match finished!")
+                    description("Players have rejoined the queue. Let's have another one!")
                 }
             }.awaitSingle()
 
             message.removeAllReactions().await()
-            message.deleteAfter(Duration.seconds(60))
+            message.deleteAfter(60.seconds)
         }
     }
 }

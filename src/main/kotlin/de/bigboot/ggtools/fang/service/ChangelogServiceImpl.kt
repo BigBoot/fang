@@ -3,8 +3,8 @@ package de.bigboot.ggtools.fang.service
 import de.bigboot.ggtools.fang.db.Version
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.transactions.transaction
-import org.koin.core.KoinComponent
-import org.koin.core.inject
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 import kotlin.math.min
 
 private val CHANGELOG = listOf(
@@ -53,9 +53,15 @@ private val CHANGELOG = listOf(
         "Updated dependencies",
         "Added HikariCP database connection pooling",
     ),
+    listOf(
+        "Updated dependencies",
+        "Removed Highscores",
+        "Fixed username parsing in commands",
+        "Try to fix queue channel cleanup again...",
+    ),
 )
 
-class ChangelogServiceImpl: KoinComponent, ChangelogService {
+class ChangelogServiceImpl : KoinComponent, ChangelogService {
     private val database: Database by inject()
 
     override val changelog: Changelog = transaction(database) {

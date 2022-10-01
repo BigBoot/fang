@@ -1,29 +1,33 @@
+@file:Suppress("unused")
+
 package de.bigboot.ggtools.fang.utils
 
 import discord4j.common.util.Snowflake
+import discord4j.core.event.EventDispatcher
+import discord4j.core.event.domain.Event
 import discord4j.core.`object`.entity.Message
 import discord4j.core.`object`.entity.User
 import discord4j.core.`object`.entity.channel.MessageChannel
 import discord4j.core.`object`.reaction.ReactionEmoji
-import discord4j.core.event.EventDispatcher
-import discord4j.core.event.domain.Event
+import discord4j.core.spec.EmbedCreateSpec
+import discord4j.core.spec.MessageCreateSpec
+import discord4j.core.spec.MessageEditSpec
 import discord4j.rest.http.client.ClientException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.transform
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.reactive.asFlow
 import kotlinx.coroutines.reactive.awaitFirstOrNull
-import kotlinx.coroutines.reactive.awaitLast
 import kotlinx.coroutines.reactive.awaitSingle
 import org.tinylog.kotlin.Logger
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import java.time.Instant
-import java.util.Optional
-import java.util.OptionalInt
-import java.util.OptionalLong
+import java.util.*
 import kotlin.time.Duration
 
 /** Flux and Mono **/
@@ -53,7 +57,7 @@ fun <T> Flow<T>.onEachSafe(action: suspend (T) -> Unit) = transform { value ->
 
 /** Message **/
 
-suspend fun Message.doAfter(duration: Duration, block: suspend Message.()->Unit) {
+suspend fun Message.doAfter(duration: Duration, block: suspend Message.() -> Unit) {
     val channelId = this.channelId
     val messageId = this.id
     CoroutineScope(Dispatchers.Default).launch {
@@ -75,8 +79,8 @@ suspend fun Message.reactAfter(duration: Duration, emoji: ReactionEmoji, andThen
 fun Message.isFromSelf() = client.selfId == Snowflake.of(userData.id())
 
 suspend fun Message.hasReacted(emoji: ReactionEmoji) = hasReacted(client.selfId, emoji)
-suspend fun Message.hasReacted(user: Snowflake, emoji: ReactionEmoji): Boolean
-        = getReactors(emoji).any { it.id == user }.awaitSingle()
+suspend fun Message.hasReacted(user: Snowflake, emoji: ReactionEmoji): Boolean =
+        getReactors(emoji).any { it.id == user }.awaitSingle()
 
 /** User **/
 
@@ -84,8 +88,32 @@ fun User.isSelf() = client.selfId == id
 
 /** Channel **/
 suspend fun MessageChannel.clean() {
-    messages().doOnNext { it.delete().subscribe() }.awaitSafe()
+    messages().doOnNext { it.delete().onErrorContinue { throwable, o ->
+        Logger.error(throwable) { "Error while processing $o. Cause: ${throwable.message}" }
+    }.subscribe() }.awaitSafe()
 }
 
-suspend fun MessageChannel.messages(): Flux<Message>
-    = lastMessage?.awaitSafe()?.let { Flux.just(it).concatWith(getMessagesBefore(it.id)) } ?: Flux.empty()
+suspend fun MessageChannel.messages(): Flux<Message> =
+    getMessagesBefore(Snowflake.of(Instant.now().plus(java.time.Duration.ofDays(1000))))
+
+/** Compat **/
+
+@Suppress("HasPlatformType")
+fun MessageChannel.createEmbedCompat(spec: EmbedCreateSpec.Builder.() -> Unit) =
+    createMessage(EmbedCreateSpec.builder().apply(spec).build())
+
+@Suppress("HasPlatformType")
+fun MessageChannel.createMessageCompat(spec: MessageCreateSpec.Builder.() -> Unit) =
+    createMessage(MessageCreateSpec.builder().apply(spec).build())
+
+@Suppress("HasPlatformType")
+fun Message.editCompat(spec: MessageEditSpec.Builder.() -> Unit) =
+    edit(MessageEditSpec.builder().apply(spec).build())
+
+@Suppress("HasPlatformType")
+fun MessageCreateSpec.Builder.addEmbedCompat(spec: EmbedCreateSpec.Builder.() -> Unit) =
+    addEmbed(EmbedCreateSpec.builder().apply(spec).build())
+
+@Suppress("HasPlatformType")
+fun MessageEditSpec.Builder.addEmbedCompat(spec: EmbedCreateSpec.Builder.() -> Unit) =
+    addEmbed(EmbedCreateSpec.builder().apply(spec).build())

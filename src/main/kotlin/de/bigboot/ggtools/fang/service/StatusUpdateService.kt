@@ -2,15 +2,11 @@ package de.bigboot.ggtools.fang.service
 
 import de.bigboot.ggtools.fang.Config
 import discord4j.core.GatewayDiscordClient
-import discord4j.core.`object`.presence.Activity
 import discord4j.core.`object`.presence.ClientActivity
 import discord4j.core.`object`.presence.ClientPresence
-import discord4j.core.`object`.presence.Status
-import discord4j.discordjson.json.ActivityUpdateRequest
-import discord4j.discordjson.json.gateway.StatusUpdate
 import kotlinx.coroutines.runBlocking
-import org.koin.core.KoinComponent
-import org.koin.core.inject
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 import java.util.*
 
 class StatusUpdateService : AutostartService, KoinComponent {

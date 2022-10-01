@@ -6,11 +6,13 @@ import de.bigboot.ggtools.fang.api.model.AdminPWRequest
 import de.bigboot.ggtools.fang.api.model.KillRequest
 import de.bigboot.ggtools.fang.api.model.StartRequest
 import de.bigboot.ggtools.fang.service.ServerService
+import de.bigboot.ggtools.fang.utils.createEmbedCompat
+import de.bigboot.ggtools.fang.utils.createMessageCompat
 import de.bigboot.ggtools.fang.utils.orNull
 import discord4j.core.`object`.reaction.ReactionEmoji
 import kotlinx.coroutines.reactive.awaitFirstOrNull
 import kotlinx.coroutines.reactive.awaitSingle
-import org.koin.core.inject
+import org.koin.core.component.inject
 import reactor.core.publisher.Mono
 
 class Server : CommandGroupSpec("server", "Commands for controlling servers") {
@@ -19,9 +21,9 @@ class Server : CommandGroupSpec("server", "Commands for controlling servers") {
     override val build: CommandGroupBuilder.() -> Unit = {
         command("list", "List all servers") {
             onCall {
-                channel().createEmbed { embed ->
-                    embed.setTitle("Servers")
-                    embed.setDescription(serverService.getAllServers()
+                channel().createEmbedCompat {
+                    title("Servers")
+                    description(serverService.getAllServers()
                         .joinToString { "${it.name} -> ${it.url}" })
                 }.awaitSingle()
             }
@@ -46,8 +48,8 @@ class Server : CommandGroupSpec("server", "Commands for controlling servers") {
                 val client = serverService.getClient(server)
 
                 if (client == null) {
-                    channel().createEmbed {
-                        it.setDescription("Unknown server $server.")
+                    channel().createEmbedCompat {
+                        description("Unknown server $server.")
                     }.awaitSingle()
 
                     return@onCall
@@ -64,12 +66,12 @@ class Server : CommandGroupSpec("server", "Commands for controlling servers") {
                 val response = client.start(request)
 
                 if (response.openUrl != null) {
-                    channel().createEmbed {
-                        it.setDescription("open ${response.openUrl}")
+                    channel().createEmbedCompat {
+                        description("open ${response.openUrl}")
                     }.awaitSingle()
                 } else if (response.error != null) {
-                    channel().createEmbed {
-                        it.setDescription("Couldn't start the server: ${response.error}.")
+                    channel().createEmbedCompat {
+                        description("Couldn't start the server: ${response.error}.")
                     }.awaitSingle()
                 }
             }
@@ -86,8 +88,8 @@ class Server : CommandGroupSpec("server", "Commands for controlling servers") {
                 val client = serverService.getClient(server)
 
                 if (client == null) {
-                    channel().createEmbed {
-                        it.setDescription("Unknown server $server.")
+                    channel().createEmbedCompat {
+                        description("Unknown server $server.")
                     }.awaitSingle()
 
                     return@onCall
@@ -100,12 +102,12 @@ class Server : CommandGroupSpec("server", "Commands for controlling servers") {
                 )
 
                 if (response.error != null) {
-                    channel().createEmbed {
-                        it.setDescription("Couldn't kill the server: ${response.error}.")
+                    channel().createEmbedCompat {
+                        description("Couldn't kill the server: ${response.error}.")
                     }.awaitSingle()
                 } else {
-                    channel().createEmbed {
-                        it.setDescription("Server killed")
+                    channel().createEmbedCompat {
+                        description("Server killed")
                     }.awaitSingle()
                 }
             }
@@ -122,8 +124,8 @@ class Server : CommandGroupSpec("server", "Commands for controlling servers") {
                 val client = serverService.getClient(server)
 
                 if (client == null) {
-                    channel().createEmbed {
-                        it.setDescription("Unknown server $server.")
+                    channel().createEmbedCompat {
+                        description("Unknown server $server.")
                     }.awaitSingle()
 
                     return@onCall
@@ -136,8 +138,8 @@ class Server : CommandGroupSpec("server", "Commands for controlling servers") {
                 )
 
                 if (response.adminPW == null) {
-                    channel().createEmbed {
-                        it.setDescription("No admin password available, are you sure the instance is running?")
+                    channel().createEmbedCompat {
+                        description("No admin password available, are you sure the instance is running?")
                     }.awaitSingle()
 
                     return@onCall
@@ -146,8 +148,8 @@ class Server : CommandGroupSpec("server", "Commands for controlling servers") {
                 val privateMessage = message.author.orNull()
                     ?.privateChannel
                     ?.awaitSingle()
-                    ?.createMessage {
-                        it.setContent("Admin password for this instance: ${response.adminPW}")
+                    ?.createMessageCompat {
+                        content("Admin password for this instance: ${response.adminPW}")
                     }
                     ?.onErrorResume { Mono.empty() }
                     ?.awaitFirstOrNull()
@@ -155,8 +157,8 @@ class Server : CommandGroupSpec("server", "Commands for controlling servers") {
                 if (privateMessage != null) {
                     message.addReaction(ReactionEmoji.unicode("\uD83D\uDC4C")).awaitFirstOrNull()
                 } else {
-                    channel().createEmbed {
-                        it.setDescription("Could not send a DM.\nMake sure you can receive direct messages from server members.")
+                    channel().createEmbedCompat {
+                        description("Could not send a DM.\nMake sure you can receive direct messages from server members.")
                     }.awaitSingle()
                 }
             }

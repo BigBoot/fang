@@ -2,6 +2,7 @@ package de.bigboot.ggtools.fang.di
 
 import de.bigboot.ggtools.fang.service.*
 import org.koin.dsl.bind
+import org.koin.dsl.binds
 import org.koin.dsl.module
 
 val serviceModule = module {
@@ -14,7 +15,6 @@ val serviceModule = module {
 
     single { CommandsService() } bind AutostartService::class
     single { QueueMessageService() } bind AutostartService::class
-    single { SetupGuildServiceImpl() } bind AutostartService::class bind SetupGuildService::class
+    single { SetupGuildServiceImpl() } binds arrayOf(AutostartService::class, SetupGuildService::class)
     single { StatusUpdateService() } bind AutostartService::class
-    single { HighscoreServiceImpl() } bind AutostartService::class bind HighscoreService::class
 }

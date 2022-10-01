@@ -4,8 +4,8 @@ import de.bigboot.ggtools.fang.Config
 import de.bigboot.ggtools.fang.db.*
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
-import org.koin.core.KoinComponent
-import org.koin.core.inject
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 import java.util.*
 
 class PermissionServiceImpl : PermissionService, KoinComponent {
