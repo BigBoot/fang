@@ -12,7 +12,6 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import java.time.Instant
 import java.time.temporal.ChronoUnit
-import kotlin.math.max
 
 class MatchServiceImpl : MatchService, KoinComponent {
     private val database: Database by inject()
@@ -76,14 +75,33 @@ class MatchServiceImpl : MatchService, KoinComponent {
                     .asSequence()
                     .sortedBy { it.joined }
                     .map { Pair(it, preferencesService.getPreferences(it.snowflake)) }
+                    .toMutableList()
 
-            val (queueServer, players) = possibleServers
-                .map { Pair(it, possiblePlayers
-                    .filter { (_, prefs) -> prefs.preferredServers.contains(it) }
-                    .take(max(0, Config.bot.required_players - previousPlayers.size))
-                    .toList()
-                )}
-                .maxBy { (_, players) -> players.size }
+            val requiredPlayers = Config.bot.required_players - previousPlayers.size
+
+
+            val (queueServer, players) = kotlin.run {
+                for(i in requiredPlayers until possiblePlayers.size) {
+                    val players = possibleServers
+                        .map { Pair(it, possiblePlayers
+                            .take(i)
+                            .filter { (_, prefs) -> prefs.preferredServers.contains(it) }
+                            .toList()
+                        )}
+                        .maxBy { (_, players) -> players.size }
+
+                    if (players.second.size >= requiredPlayers) {
+                        return@run players
+                    }
+                }
+
+                return@run possibleServers
+                    .map { Pair(it, possiblePlayers
+                        .filter { (_, prefs) -> prefs.preferredServers.contains(it) }
+                        .toList()
+                    )}
+                    .maxBy { (_, players) -> players.size }
+            }
 
             for ((player, _) in players)
             {
@@ -130,11 +148,13 @@ class MatchServiceImpl : MatchService, KoinComponent {
                 true -> Config.emojis.dm_notifications_enabled
                 false -> Config.emojis.dm_notifications_disabled
             }
-            val preferredServers = preferences.preferredServers.mapNotNull { when(it) {
-                "NA" -> Config.emojis.server_pref_na
-                "EU" -> Config.emojis.server_pref_eu
-                else -> null
-            } }.joinToString("")
+            val preferredServers = preferences.preferredServers
+                .sortedDescending()
+                .mapNotNull { when(it) {
+                    "NA" -> Config.emojis.server_pref_na
+                    "EU" -> Config.emojis.server_pref_eu
+                    else -> null
+                } }.joinToString("")
             "<@${player.snowflake}> $notification $preferredServers (In queue for ${duration.milliSecondsToTimespan()})"
         }
     }
