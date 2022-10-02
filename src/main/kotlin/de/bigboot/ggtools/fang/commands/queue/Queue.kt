@@ -4,10 +4,7 @@ import de.bigboot.ggtools.fang.CommandGroupBuilder
 import de.bigboot.ggtools.fang.CommandGroupSpec
 import de.bigboot.ggtools.fang.Config
 import de.bigboot.ggtools.fang.service.MatchService
-import de.bigboot.ggtools.fang.utils.addEmbedCompat
-import de.bigboot.ggtools.fang.utils.createEmbedCompat
-import de.bigboot.ggtools.fang.utils.createMessageCompat
-import de.bigboot.ggtools.fang.utils.findMember
+import de.bigboot.ggtools.fang.utils.*
 import discord4j.common.util.Snowflake
 import kotlinx.coroutines.reactive.awaitSingle
 import org.koin.core.component.inject
@@ -47,7 +44,7 @@ class Queue : CommandGroupSpec("queue", "Commands for matchmaking") {
             arg("queue", "the name of the queue")
 
             onCall {
-                val user = guild().findMember(args["player"])
+                val user = guild().findUser(args["player"])
                 val queue = args["queue"]
 
                 if (user == null) {

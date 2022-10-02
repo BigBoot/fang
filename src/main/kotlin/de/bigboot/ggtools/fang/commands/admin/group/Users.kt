@@ -5,6 +5,7 @@ import de.bigboot.ggtools.fang.CommandGroupSpec
 import de.bigboot.ggtools.fang.service.PermissionService
 import de.bigboot.ggtools.fang.utils.createEmbedCompat
 import de.bigboot.ggtools.fang.utils.findMember
+import de.bigboot.ggtools.fang.utils.findUser
 import kotlinx.coroutines.reactive.awaitSingle
 import org.koin.core.component.inject
 
@@ -18,7 +19,8 @@ class Users : CommandGroupSpec("users", "Commands for managing users") {
             onCall {
                 val userName = args["user"]
 
-                val user = guild().findMember(userName)
+                val member = guild().findMember(userName)
+                val user = guild().findUser(userName)
 
                 if (user == null) {
                     channel().createEmbedCompat {
@@ -30,7 +32,7 @@ class Users : CommandGroupSpec("users", "Commands for managing users") {
                 val groups = permissionService.getGroupsByUser(user.id.asLong())
 
                 channel().createEmbedCompat {
-                    title("Permissions of ${user.displayName}")
+                    title("Permissions of ${member?.displayName ?: user.username}")
                     groups.forEach { group ->
                         addField(group.first, group.second.joinToString("\n").ifBlank { "-" }, false)
                     }
@@ -50,7 +52,7 @@ class Users : CommandGroupSpec("users", "Commands for managing users") {
                 val userName = args["user"]
                 val group = args["group"]
 
-                val user = guild().findMember(userName)
+                val user = guild().findUser(userName)
 
                 if (user == null) {
                     channel().createEmbedCompat {
@@ -81,7 +83,7 @@ class Users : CommandGroupSpec("users", "Commands for managing users") {
                 val userName = args["user"]
                 val group = args["group"]
 
-                val user = guild().findMember(userName)
+                val user = guild().findUser(userName)
 
                 if (user == null) {
                     channel().createEmbedCompat {

@@ -5,6 +5,8 @@ package de.bigboot.ggtools.fang.utils
 import discord4j.common.util.Snowflake
 import discord4j.core.event.EventDispatcher
 import discord4j.core.event.domain.Event
+import discord4j.core.`object`.entity.Guild
+import discord4j.core.`object`.entity.Member
 import discord4j.core.`object`.entity.Message
 import discord4j.core.`object`.entity.User
 import discord4j.core.`object`.entity.channel.MessageChannel
@@ -85,6 +87,35 @@ suspend fun Message.hasReacted(user: Snowflake, emoji: ReactionEmoji): Boolean =
 /** User **/
 
 fun User.isSelf() = client.selfId == id
+
+private val USER_REGEX = Regex("""<@!?(\d+)>""")
+
+suspend fun Guild.findUser(name: String): User? {
+    return when {
+        USER_REGEX.matches(name) -> client.getUserById(Snowflake.of(USER_REGEX.find(name)!!.groupValues[1])).awaitSafe()
+        else -> findMember(name)
+    }
+}
+
+suspend fun Guild.findMember(name: String): Member? {
+    return when {
+        USER_REGEX.matches(name) -> getMemberById(Snowflake.of(USER_REGEX.find(name)!!.groupValues[1])).awaitSafe()
+        else -> members
+            .filter {
+                it.username.lowercase(Locale.getDefault()) == name.lowercase(Locale.getDefault()) || it.displayName.lowercase(
+                    Locale.getDefault()
+                ) == name.lowercase(Locale.getDefault())
+            }.awaitFirstOrNull()
+    }
+}
+
+suspend fun Guild.findChannel(name: String): MessageChannel? {
+    return channels
+        .filter { it is MessageChannel }
+        .filter { it.name == name }
+        .awaitFirstOrNull() as? MessageChannel
+}
+
 
 /** Channel **/
 suspend fun MessageChannel.clean() {

@@ -59,6 +59,9 @@ private val CHANGELOG = listOf(
         "Fixed username parsing in commands",
         "Try to fix queue channel cleanup again...",
     ),
+    listOf(
+        "Allow managing users who aren't in the server anymore",
+    )
 )
 
 class ChangelogServiceImpl : KoinComponent, ChangelogService {
