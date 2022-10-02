@@ -2,13 +2,19 @@ package de.bigboot.ggtools.fang.service
 
 import de.bigboot.ggtools.fang.Config
 import de.bigboot.ggtools.fang.utils.*
+import discord4j.common.util.Snowflake
 import discord4j.core.GatewayDiscordClient
+import discord4j.core.event.domain.interaction.ComponentInteractionEvent
+import discord4j.core.event.domain.interaction.SelectMenuInteractionEvent
 import discord4j.core.event.domain.message.ReactionAddEvent
+import discord4j.core.`object`.component.ActionComponent
+import discord4j.core.`object`.component.ActionRow
+import discord4j.core.`object`.component.Button
+import discord4j.core.`object`.component.SelectMenu
 import discord4j.core.`object`.entity.Message
 import discord4j.core.`object`.entity.channel.MessageChannel
 import discord4j.core.`object`.entity.channel.TextChannel
 import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.reactor.awaitSingle
 import org.koin.core.component.KoinComponent
@@ -18,11 +24,87 @@ import kotlin.math.max
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
+interface ComponentSpec {
+    fun id(): String
+    fun component(): ActionComponent
+
+    companion object {
+        val ID_PREFIX = "QUEUE_MESSAGE"
+    }
+}
+
+data class ButtonLeave(val queue: String): ComponentSpec {
+    override fun id() = "${PREFIX}_${queue}"
+    override fun component(): ActionComponent = Button.danger(id(), "Leave")
+
+    companion object {
+        private val PREFIX = "${ComponentSpec.ID_PREFIX}_BUTTON_LEAVE"
+        private val ID_REGEX = Regex("${PREFIX}_(.+)")
+        fun parse(id: String) = ID_REGEX.find(id)?.destructured?.let { (queue) -> ButtonLeave(queue) }
+    }
+}
+
+data class ButtonJoin(val queue: String): ComponentSpec {
+    override fun id() = "${PREFIX}_${queue}"
+    override fun component(): ActionComponent  = Button.success(id(), "Join")
+
+    companion object {
+        private val PREFIX = "${ComponentSpec.ID_PREFIX}_BUTTON_JOIN"
+        private val ID_REGEX = Regex("${PREFIX}_(.+)")
+        fun parse(id: String) = ID_REGEX.find(id)?.destructured?.let { (queue) -> ButtonJoin(queue) }
+    }
+}
+
+class ButtonPreferences(val queue: String): ComponentSpec {
+    override fun id() = "${PREFIX}_${queue}"
+    override fun component(): ActionComponent  = Button.secondary(id(), "Preferences")
+    companion object {
+        private val PREFIX = "${ComponentSpec.ID_PREFIX}_BUTTON_PREFERENCES_BASE"
+        private val ID_REGEX = Regex("${PREFIX}_(.+)")
+        fun parse(id: String) = ID_REGEX.find(id)?.destructured?.let { (queue) -> ButtonPreferences(queue) }
+    }
+}
+
+class ButtonUpdateServerPreference(val queue: String): ComponentSpec {
+    override fun id() = "${PREFIX}_${queue}"
+    override fun component(): ActionComponent  = Button.secondary(id(), "Update server preferences")
+    companion object {
+        private val PREFIX = "${ComponentSpec.ID_PREFIX}_BUTTON_PREFERENCES_SERVER"
+        private val ID_REGEX = Regex("${PREFIX}_(.+)")
+        fun parse(id: String) = ID_REGEX.find(id)?.destructured?.let { (queue) -> ButtonUpdateServerPreference(queue) }
+    }
+}
+
+class ButtonToggleDMNotifications(val queue: String): ComponentSpec {
+    override fun id() = "${PREFIX}_${queue}"
+    override fun component(): ActionComponent  = Button.secondary(id(), "Toggle DM notifications")
+    companion object {
+        private val PREFIX = "${ComponentSpec.ID_PREFIX}_BUTTON_PREFERENCES_DM_NOTIFICATIONS"
+        private val ID_REGEX = Regex("${PREFIX}_(.+)")
+        fun parse(id: String) = ID_REGEX.find(id)?.destructured?.let { (queue) -> ButtonToggleDMNotifications(queue) }
+    }
+}
+
+class SelectServerPreference(val queue: String): ComponentSpec {
+    override fun id() = "${PREFIX}_${queue}"
+    override fun component(): ActionComponent = SelectMenu.of(id(),
+        SelectMenu.Option.of("EU", "EU").withEmoji(Config.emojis.server_pref_eu.asReaction()),
+        SelectMenu.Option.of("NA", "NA").withEmoji(Config.emojis.server_pref_na.asReaction()),
+    ).withMaxValues(2).withPlaceholder("Select server locations")
+
+    companion object {
+        private val PREFIX = "${ComponentSpec.ID_PREFIX}_SELECT_PREFERENCES_SERVER"
+        private val ID_REGEX = Regex("${PREFIX}_(.+)")
+        fun parse(id: String) = ID_REGEX.find(id)?.destructured?.let { (queue) -> SelectServerPreference(queue) }
+    }
+}
+
+
 class QueueMessageService : AutostartService, KoinComponent {
     private val client by inject<GatewayDiscordClient>()
     private val matchService by inject<MatchService>()
     private val setupGuildService by inject<SetupGuildService>()
-    private val notificationService by inject<NotificationService>()
+    private val preferencesService by inject<PreferencesService>()
 
     private val updateQueueTimer = Timer(true)
 
@@ -32,6 +114,11 @@ class QueueMessageService : AutostartService, KoinComponent {
                 isFromSelf() && hasReacted(Config.emojis.match_finished.asReaction())
             } }
             .onEachSafe(this::handleReactMatchFinished)
+            .launch()
+
+        client.eventDispatcher.on<ComponentInteractionEvent>()
+            .filter { it.customId.startsWith(ComponentSpec.ID_PREFIX) }
+            .onEachSafe(this::handleInteraction)
             .launch()
 
         CoroutineScope(Dispatchers.Default).launch {
@@ -65,8 +152,7 @@ class QueueMessageService : AutostartService, KoinComponent {
                         for (queue in Config.bot.queues) {
                             val queueMessage = setupGuildService.getQueueMessage(queue.name)
                             if (matchService.canPop(queue.name)) {
-                                val channel =
-                                    client.getChannelById(queueMessage.channelId).awaitSingle() as MessageChannel
+                                val channel =  client.getChannelById(queueMessage.channelId).awaitSingle() as MessageChannel
                                 handleQueuePop(queue.name, matchService.pop(queue.name), channel)
                             }
                         }
@@ -76,41 +162,18 @@ class QueueMessageService : AutostartService, KoinComponent {
         }
     }
 
+    private suspend fun updateQueueMessage(queue: String)
+    {
+        setupGuildService.getQueueMessage(queue).let { msg ->
+            client.getMessageById(msg.channelId, msg.msgId)
+        }.awaitSafe()?.also { updateQueueMessage(queue, it) }
+    }
+
     private suspend fun updateQueueMessage(queue: String, msg: Message) {
-        msg.getReactors(Config.emojis.join_queue.asReaction())
-            .flow()
-            .filter { !it.isSelf() }
-            .onEachSafe { user ->
-                matchService.join(queue, user.id.asLong())
-                msg.removeReaction(Config.emojis.join_queue.asReaction(), user.id).await()
-            }
-            .collect()
-
-        msg.getReactors(Config.emojis.leave_queue.asReaction())
-            .flow()
-            .filter { !it.isSelf() }
-            .onEachSafe { user ->
-                matchService.leave(queue, user.id.asLong())
-                msg.removeReaction(Config.emojis.leave_queue.asReaction(), user.id).await()
-            }
-            .collect()
-
-        msg.getReactors(Config.emojis.dm_notifications_enabled.asReaction())
-            .flow()
-            .filter { !it.isSelf() }
-            .onEachSafe { user ->
-                notificationService.toggleDirectMessageNotifications(user.id.asLong())
-                msg.removeReaction(Config.emojis.dm_notifications_enabled.asReaction(), user.id).await()
-            }
-            .collect()
-
         val newMsgContent =
             """
             | ${matchService.printQueue(queue)}
-            | 
-            | Use ${Config.emojis.join_queue} to join the queue.
-            | Use ${Config.emojis.leave_queue} to leave the queue.   
-            | Use ${Config.emojis.dm_notifications_enabled} to toggle dm notifications.   
+            |  
             """.trimMargin()
 
         if (newMsgContent != msg.embeds.firstOrNull()?.description?.orNull()) {
@@ -119,6 +182,11 @@ class QueueMessageService : AutostartService, KoinComponent {
                     title("${matchService.getNumPlayers(queue)} players waiting in queue")
                     description(newMsgContent)
                 }
+                addComponent(ActionRow.of(
+                    ButtonJoin(queue).component(),
+                    ButtonLeave(queue).component(),
+                    ButtonPreferences(queue).component(),
+                ))
             }.awaitSingle()
         }
     }
@@ -149,7 +217,7 @@ class QueueMessageService : AutostartService, KoinComponent {
 
         CoroutineScope(Dispatchers.IO).launch {
             for (player in pop.players) {
-                notificationService.notify(player, channel.id.asLong())
+                notifyPlayer(Snowflake.of(player), channel.id)
             }
         }
 
@@ -161,8 +229,21 @@ class QueueMessageService : AutostartService, KoinComponent {
                     message.editCompat {
                         addEmbedCompat {
                             title("Match ready!")
-                            description("Everybody get ready, you've got a match.\nHave fun!\n\nPlease react with a ${Config.emojis.match_finished} after the match is finished.\nReact with a ${Config.emojis.match_drop} to drop out after this match.")
-                            addField("Players", players.joinToString(" ") { "<@$it>" }, true)
+                            description("""
+                                |Everybody get ready, you've got a match.
+                                |Have fun!
+                                |
+                                |Please react with a ${Config.emojis.match_finished} after the match is finished.
+                                |React with a ${Config.emojis.match_drop} to drop out after this match."""
+                                .trimMargin()
+                            )
+                            addField("Best server location", when(pop.server) {
+                                "NA" -> Config.emojis.server_pref_na
+                                "EU" -> Config.emojis.server_pref_eu
+                                else -> pop.server ?: "None"
+                            }, true)
+
+                            addField("Players", players.joinToString(" ") { "<@$it>" }, false)
                         }
                     }.awaitSingle()
 
@@ -177,7 +258,7 @@ class QueueMessageService : AutostartService, KoinComponent {
                     }
                 }
                 matchService.getNumPlayers(queue) + accepted.size >= requiredPlayers -> {
-                    val repop = matchService.pop(queue, accepted)
+                    val repop = matchService.pop(queue, pop.server, accepted)
                     message.delete().await()
                     handleQueuePop(queue, repop, channel)
                 }
@@ -259,6 +340,63 @@ class QueueMessageService : AutostartService, KoinComponent {
         return PopResonse(missing, accepted, denied)
     }
 
+    private suspend fun handleInteraction(event: ComponentInteractionEvent)
+    {
+        ButtonJoin.parse(event.customId)?.also {
+            event.deferEdit().awaitSafe()
+            matchService.join(it.queue, event.interaction.user.id.asLong())
+            updateQueueMessage(it.queue)
+            return
+        }
+
+        ButtonLeave.parse(event.customId)?.also {
+            event.deferEdit().awaitSafe()
+            matchService.leave(it.queue, event.interaction.user.id.asLong())
+            updateQueueMessage(it.queue)
+            return
+        }
+
+        ButtonToggleDMNotifications.parse(event.customId)?.also {
+            event.deferEdit().awaitSafe()
+            preferencesService.toggleDirectMessageNotifications(event.interaction.user.id.asLong())
+            updateQueueMessage(it.queue)
+            return
+        }
+
+        ButtonPreferences.parse(event.customId)?.also {
+            event.replyCompat {
+                addComponent(ActionRow.of(
+                    ButtonToggleDMNotifications(it.queue).component(),
+                    ButtonUpdateServerPreference(it.queue).component(),
+                ))
+                ephemeral(true)
+            }.await()
+            return
+        }
+
+        ButtonUpdateServerPreference.parse(event.customId)?.also {
+            event.replyCompat {
+                addComponent(ActionRow.of(
+                    SelectServerPreference(it.queue).component(),
+                ))
+                ephemeral(true)
+            }.await()
+            updateQueueMessage(it.queue)
+            return
+        }
+
+        SelectServerPreference.parse(event.customId)?.also {
+            val result = (event as SelectMenuInteractionEvent).values
+            preferencesService.setPreferences(event.interaction.user.id.asLong(), PreferencesService.UpdatePreferences(
+                preferredServers = result.toSet()
+            ))
+            event.deferEdit().awaitSafe()
+            updateQueueMessage(it.queue)
+            return
+        }
+
+    }
+
     private suspend fun handleReactMatchFinished(event: ReactionAddEvent) {
         val message = event.message.awaitSingle()
         val channel = event.channel.awaitSingle() as? TextChannel
@@ -307,6 +445,16 @@ class QueueMessageService : AutostartService, KoinComponent {
 
             message.removeAllReactions().await()
             message.deleteAfter(60.seconds)
+        }
+    }
+
+    private suspend fun notifyPlayer(player: Snowflake, channel: Snowflake) {
+        if (preferencesService.getPreferences(player.asLong()).dmNotifications) {
+            client.getUserById(player).awaitSafe()
+                ?.privateChannel?.awaitSafe()
+                ?.createMessageCompat {
+                    content("There's a match ready for you, please head over to <#${channel.asLong()}>")
+                }?.awaitSafe()
         }
     }
 }

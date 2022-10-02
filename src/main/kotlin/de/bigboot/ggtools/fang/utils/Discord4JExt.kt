@@ -5,15 +5,14 @@ package de.bigboot.ggtools.fang.utils
 import discord4j.common.util.Snowflake
 import discord4j.core.event.EventDispatcher
 import discord4j.core.event.domain.Event
+import discord4j.core.event.domain.interaction.DeferrableInteractionEvent
 import discord4j.core.`object`.entity.Guild
 import discord4j.core.`object`.entity.Member
 import discord4j.core.`object`.entity.Message
 import discord4j.core.`object`.entity.User
 import discord4j.core.`object`.entity.channel.MessageChannel
 import discord4j.core.`object`.reaction.ReactionEmoji
-import discord4j.core.spec.EmbedCreateSpec
-import discord4j.core.spec.MessageCreateSpec
-import discord4j.core.spec.MessageEditSpec
+import discord4j.core.spec.*
 import discord4j.rest.http.client.ClientException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -148,3 +147,7 @@ fun MessageCreateSpec.Builder.addEmbedCompat(spec: EmbedCreateSpec.Builder.() ->
 @Suppress("HasPlatformType")
 fun MessageEditSpec.Builder.addEmbedCompat(spec: EmbedCreateSpec.Builder.() -> Unit) =
     addEmbed(EmbedCreateSpec.builder().apply(spec).build())
+
+@Suppress("HasPlatformType")
+fun DeferrableInteractionEvent.replyCompat(spec: InteractionApplicationCommandCallbackSpec.Builder.() -> Unit) =
+    reply(InteractionApplicationCommandCallbackSpec.builder().apply(spec).build())

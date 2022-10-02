@@ -12,7 +12,7 @@ interface MatchService {
 
     fun request(queue: String, player: Long, minPlayers: Int)
 
-    fun pop(queue: String, previousPlayers: Collection<Long> = emptyList()): Pop
+    fun pop(queue: String, server: String? = null, previousPlayers: Collection<Long> = emptyList()): Pop
 
     fun getPlayers(queue: String): Collection<Player>
 
@@ -22,18 +22,20 @@ interface MatchService {
 
     data class Player(
         val snowflake: Long,
-        val joined: Long
+        val joined: Long,
+        val preferredServers: Set<String>,
     )
 
     data class Pop(
         val players: Collection<Long>,
         val forced: Boolean,
         val request: Request?,
-        val previousPlayers: Collection<Long> = emptyList()
+        val previousPlayers: Collection<Long> = emptyList(),
+        val server: String? = null,
     )
 
     data class Request(
         val player: Long,
-        val minPlayers: Int
+        val minPlayers: Int,
     )
 }

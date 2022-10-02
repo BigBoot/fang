@@ -18,6 +18,9 @@ data class EmojisConfig(
     val leave_queue: String = "\uD83D\uDC4E",
     val dm_notifications_enabled: String = "\uD83D\uDD14",
     val dm_notifications_disabled: String = "\uD83D\uDD15",
+    val server_pref_none: String = "\uD83C\uDDFA\uD83C\uDDF3",
+    val server_pref_na: String = "\uD83C\uDDFA\uD83C\uDDF8",
+    val server_pref_eu: String = "\uD83C\uDDEA\uD83C\uDDFA",
 )
 
 @JsonClass(generateAdapter = true)

@@ -12,10 +12,11 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import java.time.Instant
 import java.time.temporal.ChronoUnit
+import kotlin.math.max
 
 class MatchServiceImpl : MatchService, KoinComponent {
     private val database: Database by inject()
-    private val notificationService by inject<NotificationService>()
+    private val preferencesService by inject<PreferencesService>()
 
     private var force = HashSet<String>()
     private var requests = HashMap<String, MatchService.Request>()
@@ -65,22 +66,38 @@ class MatchServiceImpl : MatchService, KoinComponent {
         requests[queue] = MatchService.Request(player, minPlayers)
     }
 
-    override fun pop(queue: String, previousPlayers: Collection<Long>): MatchService.Pop {
-        val pop = MatchService.Pop(
-            forced = force.contains(queue),
-            request = requests[queue],
-            players = transaction {
+    override fun pop(queue: String, server: String?, previousPlayers: Collection<Long>): MatchService.Pop {
+        val pop = transaction {
+            val possibleServers = if (server != null ) listOf(server) else listOf("NA", "EU")
+
+            val possiblePlayers =
                 Player
                     .find { (Players.inMatch eq false) and (Players.queue eq queue) }
                     .asSequence()
                     .sortedBy { it.joined }
-                    .take(kotlin.math.max(0, Config.bot.required_players - previousPlayers.size))
-                    .onEach { it.inMatch = true }
-                    .map { it.snowflake }
+                    .map { Pair(it, preferencesService.getPreferences(it.snowflake)) }
+
+            val (queueServer, players) = possibleServers
+                .map { Pair(it, possiblePlayers
+                    .filter { (_, prefs) -> prefs.preferredServers.contains(it) }
+                    .take(max(0, Config.bot.required_players - previousPlayers.size))
                     .toList()
-            },
-            previousPlayers = previousPlayers
-        )
+                )}
+                .maxBy { (_, players) -> players.size }
+
+            for ((player, _) in players)
+            {
+                player.inMatch = true
+            }
+
+            MatchService.Pop(
+                forced = force.contains(queue),
+                request = requests[queue],
+                players = players.map { (player, _) -> player.snowflake }.toList(),
+                previousPlayers = previousPlayers,
+                server = queueServer
+            )
+        }
 
         force.remove(queue)
         requests.remove(queue)
@@ -92,13 +109,15 @@ class MatchServiceImpl : MatchService, KoinComponent {
         Player
             .find { Players.queue eq queue }
             .filter { Player.find { (Players.snowflake eq it.snowflake) and ((Players.inMatch eq true)) }.empty() }
-            .map { MatchService.Player(it.snowflake, it.joined) }
+            .map { MatchService.Player(it.snowflake, it.joined, preferencesService.getPreferences(it.snowflake).preferredServers) }
     }
 
     override fun getNumPlayers(queue: String) = transaction(database) {
-        Player
-            .find { Players.queue eq queue }
-            .count { Player.find { (Players.snowflake eq it.snowflake) and ((Players.inMatch eq true)) }.empty() }
+        val players = getPlayers(queue)
+
+        setOf("NA", "EU")
+            .map { players.filter { player -> player.preferredServers.contains(it)} }
+            .maxOf { it.count() }
             .toLong()
     }
 
@@ -106,11 +125,17 @@ class MatchServiceImpl : MatchService, KoinComponent {
         getNumPlayers(queue) == 0L -> "No one in queue ${Config.emojis.queue_empty}."
         else -> getPlayers(queue).sortedBy { it.joined }.joinToString("\n") { player ->
             val duration = ChronoUnit.MILLIS.between(Instant.ofEpochMilli(player.joined), Instant.now())
-            val notification = when (notificationService.getDirectMessageNotificationsEnabled(player.snowflake)) {
+            val preferences = preferencesService.getPreferences(player.snowflake)
+            val notification = when (preferences.dmNotifications) {
                 true -> Config.emojis.dm_notifications_enabled
                 false -> Config.emojis.dm_notifications_disabled
             }
-            "<@${player.snowflake}> $notification (In queue for ${duration.milliSecondsToTimespan()})"
+            val preferredServers = preferences.preferredServers.mapNotNull { when(it) {
+                "NA" -> Config.emojis.server_pref_na
+                "EU" -> Config.emojis.server_pref_eu
+                else -> null
+            } }.joinToString("")
+            "<@${player.snowflake}> $notification $preferredServers (In queue for ${duration.milliSecondsToTimespan()})"
         }
     }
 }

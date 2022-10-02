@@ -46,9 +46,10 @@ class SetupGuildServiceImpl : AutostartService, SetupGuildService, KoinComponent
                     }
                 }.awaitSingle()
 
-                queueMsg.addReaction(Config.emojis.join_queue.asReaction()).await()
-                queueMsg.addReaction(Config.emojis.leave_queue.asReaction()).await()
-                queueMsg.addReaction(Config.emojis.dm_notifications_enabled.asReaction()).await()
+//                queueMsg.addReaction(Config.emojis.join_queue.asReaction()).await()
+//                queueMsg.addReaction(Config.emojis.leave_queue.asReaction()).await()
+//                queueMsg.addReaction(Config.emojis.dm_notifications_enabled.asReaction()).await()
+//                queueMsg.addReaction(Config.emojis.server_pref_none.asReaction()).await()
 
                 queueChannel.createMessageCompat {
                     @Suppress("MagicNumber")

@@ -11,7 +11,7 @@ val serviceModule = module {
     single { PermissionServiceImpl() } bind PermissionService::class
     single { ServerServiceImpl() } bind ServerService::class
     single { ChangelogServiceImpl() } bind ChangelogService::class
-    single { NotificationServiceImpl() } bind NotificationService::class
+    single { PreferencesServiceImpl() } bind PreferencesService::class
 
     single { CommandsService() } bind AutostartService::class
     single { QueueMessageService() } bind AutostartService::class
