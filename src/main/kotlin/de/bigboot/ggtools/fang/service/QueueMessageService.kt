@@ -257,7 +257,7 @@ class QueueMessageService : AutostartService, KoinComponent {
                         }
                     }
                 }
-                matchService.getNumPlayers(queue) + accepted.size >= requiredPlayers -> {
+                matchService.getNumPlayers(queue, pop.server) + accepted.size >= requiredPlayers -> {
                     val repop = matchService.pop(queue, pop.server, accepted)
                     message.delete().await()
                     handleQueuePop(queue, repop, channel)

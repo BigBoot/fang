@@ -61,6 +61,9 @@ private val CHANGELOG = listOf(
     ),
     listOf(
         "Allow managing users who aren't in the server anymore",
+    ),
+    listOf(
+        "Fix possible infinite loop in backfill logic",
     )
 )
 

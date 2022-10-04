@@ -16,7 +16,7 @@ interface MatchService {
 
     fun getPlayers(queue: String): Collection<Player>
 
-    fun getNumPlayers(queue: String): Long
+    fun getNumPlayers(queue: String, server: String? = null): Long
 
     fun printQueue(queue: String): String
 

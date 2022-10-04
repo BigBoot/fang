@@ -130,11 +130,11 @@ class MatchServiceImpl : MatchService, KoinComponent {
             .map { MatchService.Player(it.snowflake, it.joined, preferencesService.getPreferences(it.snowflake).preferredServers) }
     }
 
-    override fun getNumPlayers(queue: String) = transaction(database) {
+    override fun getNumPlayers(queue: String, server: String?) = transaction(database) {
         val players = getPlayers(queue)
+        val servers = server?.let { setOf(it) } ?: setOf("NA", "EU")
 
-        setOf("NA", "EU")
-            .map { players.filter { player -> player.preferredServers.contains(it)} }
+        servers.map { players.filter { player -> player.preferredServers.contains(it)} }
             .maxOf { it.count() }
             .toLong()
     }
