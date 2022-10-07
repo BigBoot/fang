@@ -1,7 +1,7 @@
 package de.bigboot.ggtools.fang.service
 
 import de.bigboot.ggtools.fang.Config
-import de.bigboot.ggtools.fang.api.EmuApi
+import de.bigboot.ggtools.fang.api.emu.EmuApi
 import okhttp3.OkHttpClient
 import org.koin.core.component.KoinComponent
 import retrofit2.Retrofit

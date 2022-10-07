@@ -1,10 +1,9 @@
 package de.bigboot.ggtools.fang.service
 
-import de.bigboot.ggtools.fang.api.ServerApi
+import de.bigboot.ggtools.fang.api.agent.ServerApi
 import de.bigboot.ggtools.fang.db.Server
 
 interface ServerService {
-
     suspend fun checkServer(name: String, url: String, apiKey: String): Boolean
 
     suspend fun addServer(name: String, url: String, apiKey: String)

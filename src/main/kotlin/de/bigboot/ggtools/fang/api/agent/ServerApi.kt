@@ -1,6 +1,6 @@
-package de.bigboot.ggtools.fang.api
+package de.bigboot.ggtools.fang.api.agent
 
-import de.bigboot.ggtools.fang.api.model.*
+import de.bigboot.ggtools.fang.api.agent.model.*
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST

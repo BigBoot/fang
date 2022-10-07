@@ -13,8 +13,9 @@ val serviceModule = module {
     single { ChangelogServiceImpl() } bind ChangelogService::class
     single { PreferencesServiceImpl() } bind PreferencesService::class
 
+    single { SetupGuildServiceImpl() } binds arrayOf(AutostartService::class, SetupGuildService::class)
     single { CommandsService() } bind AutostartService::class
     single { QueueMessageService() } bind AutostartService::class
-    single { SetupGuildServiceImpl() } binds arrayOf(AutostartService::class, SetupGuildService::class)
     single { StatusUpdateService() } bind AutostartService::class
+    single { MistforgeService() } bind AutostartService::class
 }

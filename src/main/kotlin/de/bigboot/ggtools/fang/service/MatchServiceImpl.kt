@@ -3,15 +3,12 @@ package de.bigboot.ggtools.fang.service
 import de.bigboot.ggtools.fang.Config
 import de.bigboot.ggtools.fang.db.Player
 import de.bigboot.ggtools.fang.db.Players
-import de.bigboot.ggtools.fang.utils.milliSecondsToTimespan
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
-import java.time.Instant
-import java.time.temporal.ChronoUnit
 
 class MatchServiceImpl : MatchService, KoinComponent {
     private val database: Database by inject()
@@ -41,7 +38,7 @@ class MatchServiceImpl : MatchService, KoinComponent {
         return true
     }
 
-    override fun leave(queue: String, snowflake: Long, matchOnly: Boolean, resetScore: Boolean): Boolean {
+    override fun leave(queue: String, snowflake: Long, matchOnly: Boolean): Boolean {
         return transaction {
             val result = Players.deleteWhere {
                 when (matchOnly) {
@@ -65,7 +62,7 @@ class MatchServiceImpl : MatchService, KoinComponent {
         requests[queue] = MatchService.Request(player, minPlayers)
     }
 
-    override fun pop(queue: String, server: String?, previousPlayers: Collection<Long>): MatchService.Pop {
+    override fun pop(queue: String, server: String?, previousPlayers: Set<Long>): MatchService.Pop {
         val pop = transaction {
             val possibleServers = if (server != null ) listOf(server) else listOf("NA", "EU")
 
@@ -111,7 +108,7 @@ class MatchServiceImpl : MatchService, KoinComponent {
             MatchService.Pop(
                 forced = force.contains(queue),
                 request = requests[queue],
-                players = players.map { (player, _) -> player.snowflake }.toList(),
+                players = players.map { (player, _) -> player.snowflake }.toSet(),
                 previousPlayers = previousPlayers,
                 server = queueServer
             )
@@ -137,25 +134,5 @@ class MatchServiceImpl : MatchService, KoinComponent {
         servers.map { players.filter { player -> player.preferredServers.contains(it)} }
             .maxOf { it.count() }
             .toLong()
-    }
-
-    override fun printQueue(queue: String): String = when {
-        getNumPlayers(queue) == 0L -> "No one in queue ${Config.emojis.queue_empty}."
-        else -> getPlayers(queue).sortedBy { it.joined }.joinToString("\n") { player ->
-            val duration = ChronoUnit.MILLIS.between(Instant.ofEpochMilli(player.joined), Instant.now())
-            val preferences = preferencesService.getPreferences(player.snowflake)
-            val notification = when (preferences.dmNotifications) {
-                true -> Config.emojis.dm_notifications_enabled
-                false -> Config.emojis.dm_notifications_disabled
-            }
-            val preferredServers = preferences.preferredServers
-                .sortedDescending()
-                .mapNotNull { when(it) {
-                    "NA" -> Config.emojis.server_pref_na
-                    "EU" -> Config.emojis.server_pref_eu
-                    else -> null
-                } }.joinToString("")
-            "<@${player.snowflake}> $notification $preferredServers (In queue for ${duration.milliSecondsToTimespan()})"
-        }
     }
 }

@@ -32,6 +32,7 @@ dependencies {
     // kotlinx-coroutines & reactor extension
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4-native-mt")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor:1.6.4-native-mt")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-jdk8:1.6.4-native-mt")
 
     // Exposed
     implementation("org.jetbrains.exposed:exposed-core:0.39.2")
@@ -73,6 +74,12 @@ dependencies {
     // Flyway
     implementation("org.flywaydb:flyway-core:9.4.0")
     implementation("org.flywaydb:flyway-mysql:9.4.0")
+
+    // Scrimage
+    implementation("com.sksamuel.scrimage:scrimage-core:4.0.32")
+
+    // CopyDown
+    implementation("io.github.furstenheim:copy_down:1.1")
 
     // JUnit
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.9.1")

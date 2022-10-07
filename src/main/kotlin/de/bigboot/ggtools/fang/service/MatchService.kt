@@ -4,7 +4,7 @@ interface MatchService {
 
     fun join(queue: String, snowflake: Long): Boolean
 
-    fun leave(queue: String, snowflake: Long, matchOnly: Boolean = false, resetScore: Boolean = false): Boolean
+    fun leave(queue: String, snowflake: Long, matchOnly: Boolean = false): Boolean
 
     fun canPop(queue: String): Boolean
 
@@ -12,13 +12,11 @@ interface MatchService {
 
     fun request(queue: String, player: Long, minPlayers: Int)
 
-    fun pop(queue: String, server: String? = null, previousPlayers: Collection<Long> = emptyList()): Pop
+    fun pop(queue: String, server: String? = null, previousPlayers: Set<Long> = emptySet()): Pop
 
     fun getPlayers(queue: String): Collection<Player>
 
     fun getNumPlayers(queue: String, server: String? = null): Long
-
-    fun printQueue(queue: String): String
 
     data class Player(
         val snowflake: Long,
@@ -27,12 +25,12 @@ interface MatchService {
     )
 
     data class Pop(
-        val players: Collection<Long>,
+        val players: Set<Long>,
         val forced: Boolean,
         val request: Request?,
-        val previousPlayers: Collection<Long> = emptyList(),
+        val previousPlayers: Set<Long> = emptySet(),
         val server: String? = null,
-    )
+    ) { val allPlayers = players + previousPlayers }
 
     data class Request(
         val player: Long,

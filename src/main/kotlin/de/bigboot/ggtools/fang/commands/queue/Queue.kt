@@ -4,6 +4,7 @@ import de.bigboot.ggtools.fang.CommandGroupBuilder
 import de.bigboot.ggtools.fang.CommandGroupSpec
 import de.bigboot.ggtools.fang.Config
 import de.bigboot.ggtools.fang.service.MatchService
+import de.bigboot.ggtools.fang.service.QueueMessageService
 import de.bigboot.ggtools.fang.utils.*
 import discord4j.common.util.Snowflake
 import kotlinx.coroutines.reactive.awaitSingle
@@ -11,6 +12,7 @@ import org.koin.core.component.inject
 
 class Queue : CommandGroupSpec("queue", "Commands for matchmaking") {
     private val matchService by inject<MatchService>()
+    private val queueMessageService by inject<QueueMessageService>()
 
     override val build: CommandGroupBuilder.() -> Unit = {
         command("list", "show all available queues") {
@@ -32,8 +34,7 @@ class Queue : CommandGroupSpec("queue", "Commands for matchmaking") {
 
                 channel().createMessageCompat {
                     addEmbedCompat {
-                        title("${matchService.getNumPlayers(queue)} players waiting in queue")
-                        description(matchService.printQueue(queue))
+                        queueMessageService.printQueue(queue, this)
                     }
                 }.awaitSingle()
             }

@@ -5,6 +5,7 @@ package de.bigboot.ggtools.fang.utils
 import discord4j.common.util.Snowflake
 import discord4j.core.event.EventDispatcher
 import discord4j.core.event.domain.Event
+import discord4j.core.event.domain.interaction.ComponentInteractionEvent
 import discord4j.core.event.domain.interaction.DeferrableInteractionEvent
 import discord4j.core.`object`.entity.Guild
 import discord4j.core.`object`.entity.Member
@@ -27,6 +28,7 @@ import kotlinx.coroutines.reactive.awaitSingle
 import org.tinylog.kotlin.Logger
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import reactor.core.scheduler.Schedulers
 import java.time.Instant
 import java.util.*
 import kotlin.time.Duration
@@ -34,10 +36,10 @@ import kotlin.time.Duration
 /** Flux and Mono **/
 
 suspend fun <T> Mono<T>.await(): T? = awaitFirstOrNull()
-suspend fun <T> Mono<T>.awaitSafe(): T? = try { await() } catch (_: ClientException) { null }
+suspend fun <T> Mono<T>.awaitSafe(log: Boolean = true): T? = try { await() } catch (e: ClientException) { if(log) { Logger.warn(e) }; null }
 suspend fun <T> Mono<T>.awaitSingle(): T = this.awaitSingle()
 suspend fun <T> Flux<T>.await(): List<T> = collectList().awaitSingle()
-suspend fun <T> Flux<T>.awaitSafe(): List<T> = try { await() } catch (_: ClientException) { emptyList() }
+suspend fun <T> Flux<T>.awaitSafe(log: Boolean = true): List<T> = try { await() } catch (e: ClientException) { if(log) { Logger.warn(e) }; emptyList() }
 
 fun <T> Optional<T>.orNull(): T? = orElse(null)
 fun OptionalInt.orNull(): Int? = takeIf { isPresent }?.asInt
@@ -118,11 +120,12 @@ suspend fun Guild.findChannel(name: String): MessageChannel? {
 
 /** Channel **/
 suspend fun MessageChannel.clean() {
-    messages().doOnNext { it.delete().onErrorContinue { throwable, o ->
+    messages().publishOn(Schedulers.boundedElastic()).doOnNext { it.delete().onErrorContinue { throwable, o ->
         Logger.error(throwable) { "Error while processing $o. Cause: ${throwable.message}" }
     }.subscribe() }.awaitSafe()
 }
 
+@Suppress("ReactiveStreamsUnusedPublisher")
 suspend fun MessageChannel.messages(): Flux<Message> =
     getMessagesBefore(Snowflake.of(Instant.now().plus(java.time.Duration.ofDays(1000))))
 
@@ -151,3 +154,19 @@ fun MessageEditSpec.Builder.addEmbedCompat(spec: EmbedCreateSpec.Builder.() -> U
 @Suppress("HasPlatformType")
 fun DeferrableInteractionEvent.replyCompat(spec: InteractionApplicationCommandCallbackSpec.Builder.() -> Unit) =
     reply(InteractionApplicationCommandCallbackSpec.builder().apply(spec).build())
+
+@Suppress("HasPlatformType")
+fun ComponentInteractionEvent.editCompat(spec: InteractionApplicationCommandCallbackSpec.Builder.() -> Unit) =
+    edit(InteractionApplicationCommandCallbackSpec.builder().apply(spec).build())
+
+@Suppress("HasPlatformType")
+fun InteractionApplicationCommandCallbackSpec.Builder.addEmbedCompat(spec: EmbedCreateSpec.Builder.() -> Unit) =
+    addEmbed(EmbedCreateSpec.builder().apply(spec).build())
+
+@Suppress("HasPlatformType")
+fun InteractionReplyEditSpec.Builder.addEmbedCompat(spec: EmbedCreateSpec.Builder.() -> Unit) =
+    addEmbed(EmbedCreateSpec.builder().apply(spec).build())
+
+@Suppress("HasPlatformType")
+fun DeferrableInteractionEvent.editReplyCompat(spec: InteractionReplyEditSpec.Builder.() -> Unit) =
+    editReply(InteractionReplyEditSpec.builder().apply(spec).build())

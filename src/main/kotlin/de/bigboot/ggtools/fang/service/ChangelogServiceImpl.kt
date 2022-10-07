@@ -64,6 +64,12 @@ private val CHANGELOG = listOf(
     ),
     listOf(
         "Fix possible infinite loop in backfill logic",
+    ),
+    listOf(
+        "Completely redo queue system",
+        "Added mapvotes to queue",
+        "Added server setup to queue",
+        "Added Mistforge build intergration",
     )
 )
 

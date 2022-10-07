@@ -43,6 +43,7 @@ data class BotConfig(
     val token: String,
     val prefix: String = "!",
     val accept_timeout: Int = 120,
+    val mapvote_time: Int = 30,
     val statusupdate_poll_rate: Long = 2000L,
     val required_players: Int = 10,
     val log_level: String = "info",

@@ -1,6 +1,6 @@
 package de.bigboot.ggtools.fang.service
 
-import de.bigboot.ggtools.fang.api.ServerApi
+import de.bigboot.ggtools.fang.api.agent.ServerApi
 import de.bigboot.ggtools.fang.db.Server
 import de.bigboot.ggtools.fang.db.Servers
 import okhttp3.OkHttpClient
@@ -12,7 +12,6 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
-import java.util.Locale
 
 class ServerServiceImpl : ServerService, KoinComponent {
     private val database: Database by inject()
@@ -21,7 +20,7 @@ class ServerServiceImpl : ServerService, KoinComponent {
     init {
         clients = transaction(database) {
             Servers.selectAll().associate {
-                Pair(it[Servers.name].lowercase(Locale.getDefault()), createClient(it[Servers.url], it[Servers.apiKey]))
+                Pair(it[Servers.name].lowercase(), createClient(it[Servers.url], it[Servers.apiKey]))
             }.toMutableMap()
         }
     }
@@ -38,7 +37,7 @@ class ServerServiceImpl : ServerService, KoinComponent {
 
     override suspend fun addServer(name: String, url: String, apiKey: String) {
         transaction(database) {
-            clients[name.lowercase(Locale.getDefault())] = createClient(url, apiKey)
+            clients[name.lowercase()] = createClient(url, apiKey)
 
             Servers.deleteWhere { Servers.name eq name }
 
@@ -51,14 +50,14 @@ class ServerServiceImpl : ServerService, KoinComponent {
     }
 
     override fun removeServer(name: String) {
-        clients.remove(name.lowercase(Locale.getDefault()))
+        clients.remove(name.lowercase())
         transaction(database) {
             Servers.deleteWhere { Servers.name eq name }
         }
     }
 
     override fun getClient(name: String): ServerApi? {
-        return clients[name]
+        return clients[name.lowercase()]
     }
 
     override fun getAllServers(): List<Server> {

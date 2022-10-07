@@ -2,9 +2,9 @@ package de.bigboot.ggtools.fang.commands.server
 
 import de.bigboot.ggtools.fang.CommandGroupBuilder
 import de.bigboot.ggtools.fang.CommandGroupSpec
-import de.bigboot.ggtools.fang.api.model.AdminPWRequest
-import de.bigboot.ggtools.fang.api.model.KillRequest
-import de.bigboot.ggtools.fang.api.model.StartRequest
+import de.bigboot.ggtools.fang.api.agent.model.AdminPWRequest
+import de.bigboot.ggtools.fang.api.agent.model.KillRequest
+import de.bigboot.ggtools.fang.api.agent.model.StartRequest
 import de.bigboot.ggtools.fang.service.ServerService
 import de.bigboot.ggtools.fang.utils.createEmbedCompat
 import de.bigboot.ggtools.fang.utils.createMessageCompat
