@@ -28,7 +28,7 @@ import org.koin.core.component.inject
 
 interface MistforgeComponentSpec : ComponentSpec {
     companion object {
-        const val ID_PREFIX = "QUEUE_MESSAGE"
+        const val ID_PREFIX = "MISTFORGE"
     }
 }
 

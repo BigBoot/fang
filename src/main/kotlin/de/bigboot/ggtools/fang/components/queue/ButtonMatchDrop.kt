@@ -1,13 +1,14 @@
 package de.bigboot.ggtools.fang.components.queue
 
 import de.bigboot.ggtools.fang.Config
+import de.bigboot.ggtools.fang.utils.asReaction
 import discord4j.core.`object`.component.ActionComponent
 import discord4j.core.`object`.component.Button
 import java.util.UUID
 
 data class ButtonMatchDrop(val matchId: UUID): QueueComponentSpec {
     override fun id() = "$PREFIX:${matchId}"
-    override fun component(): ActionComponent = Button.danger(id(), "${Config.emojis.match_drop} Drop out")
+    override fun component(): ActionComponent = Button.danger(id(), Config.emojis.match_drop.asReaction(), "Drop out")
 
     companion object {
         private val PREFIX = "${QueueComponentSpec.ID_PREFIX}:BUTTON:MATCH_DROP"

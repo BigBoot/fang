@@ -70,6 +70,11 @@ private val CHANGELOG = listOf(
         "Added mapvotes to queue",
         "Added server setup to queue",
         "Added Mistforge build intergration",
+    ),
+    listOf(
+        "Fix queue backfill system not updating queue message",
+        "Fix queue system pinging people multiple time when backfilling",
+        "Fix match ready button emojis",
     )
 )
 

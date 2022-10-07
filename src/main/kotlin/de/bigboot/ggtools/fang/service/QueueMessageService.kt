@@ -182,7 +182,6 @@ class QueueMessageService : AutostartService, KoinComponent {
     }
 
     private suspend fun handleQueuePop(queue: String, pop: MatchService.Pop, channel: MessageChannel) {
-        val players = pop.players + pop.previousPlayers
         val canDeny = pop.request != null
         val endTime = Instant.now().plusSeconds(Config.bot.accept_timeout.toLong())
 
@@ -190,10 +189,10 @@ class QueueMessageService : AutostartService, KoinComponent {
         val matchReady = CompletableFuture<Unit>()
 
         val message = channel.createMessageCompat {
-            content(players.joinToString(" ") { player -> "<@$player>" })
+            content(pop.players.joinToString(" ") { player -> "<@$player>" })
 
             addEmbedCompat {
-                printQueuePop(pop, endTime, players, this)
+                printQueuePop(pop, endTime, pop.allPlayers, this)
             }
 
             addComponent(ActionRow.of(when(canDeny) {
@@ -202,7 +201,7 @@ class QueueMessageService : AutostartService, KoinComponent {
             }.map { it.component() }.toMutableList()))
         }.awaitSafe() ?: return
 
-        matchReuests[matchId] = MatchRequest(queue, endTime, pop, players.toMutableSet(), matchReady, message)
+        matchReuests[matchId] = MatchRequest(queue, endTime, pop, pop.players.toMutableSet(), matchReady, message)
 
         CoroutineScope(Dispatchers.IO).launch {
             for (player in pop.players) {
@@ -257,6 +256,10 @@ class QueueMessageService : AutostartService, KoinComponent {
         val message = request.message
         val accepted =  request.pop.allPlayers - request.missingPlayers
 
+        for (player in request.missingPlayers) {
+            matchService.leave(request.queue, player)
+        }
+
         if(matchService.getNumPlayers(request.queue, request.pop.server) >= request.missingPlayers.size) {
             val repop = matchService.pop(request.queue, request.pop.server, accepted)
             message.delete().await()
@@ -274,14 +277,10 @@ class QueueMessageService : AutostartService, KoinComponent {
                 matchService.join(request.queue, player)
             }
 
-            for (player in request.missingPlayers) {
-                matchService.leave(request.queue, player)
-            }
-
             message.deleteAfter(5.minutes)
-
-            updateQueueMessage(request.queue)
         }
+
+        updateQueueMessage(request.queue)
     }
 
     private suspend fun handleMatchFinished(request: MatchRequest) {
