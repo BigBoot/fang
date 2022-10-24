@@ -522,7 +522,7 @@ class QueueMessageService : AutostartService, KoinComponent {
         event.deferEdit().awaitSafe()
 
         val request = matchReuests[button.matchId] ?: return
-        if(request.pop.players.contains(event.interaction.user.id.asLong())) {
+        if(request.pop.allPlayers.contains(event.interaction.user.id.asLong())) {
             request.finishedPlayers += event.interaction.user.id.asLong()
 
             if(request.finishedPlayers.size >= 2) {
