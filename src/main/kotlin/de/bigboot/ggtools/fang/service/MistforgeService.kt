@@ -77,10 +77,14 @@ class MistforgeService: AutostartService, KoinComponent {
     private suspend fun handleMessage(event: MessageCreateEvent, params: String) {
         var guide: Guide? = null
         val query_pairs = HashMap<String, String>()
-        val pairs = params.split("&")
-        for (pair in pairs) {
-            val idx = pair.indexOf("=")
-            query_pairs.put(pair.substring(0, idx), pair.substring(idx + 1))
+        if (params.contains("&")) {
+            val pairs = params.split("&")
+            for (pair in pairs) {
+                if (pair.contains("=")) {
+                    val idx = pair.indexOf("=")
+                    query_pairs.put(pair.substring(0, idx), pair.substring(idx + 1))
+                }
+            }
         }
         if (query_pairs.containsKey("build_id")) {
             guide = mistforge.getGuide(query_pairs.get("build_id")!!.toInt())
@@ -130,7 +134,7 @@ class MistforgeService: AutostartService, KoinComponent {
 
         img = img.overlay(talent, 1117,262)
 
-        var skills = ""
+        var skills = "eeeeeeeeee"
         if (guide != null) {
             skills = guide.skills
         }
@@ -182,10 +186,14 @@ class MistforgeService: AutostartService, KoinComponent {
 
         var guide: Guide? = null
         val query_pairs = HashMap<String, String>()
-        val pairs = button.params.split("&")
-        for (pair in pairs) {
-            val idx = pair.indexOf("=")
-            query_pairs.put(pair.substring(0, idx), pair.substring(idx + 1))
+        if (button.params.contains("&")) {
+            val pairs = button.params.split("&")
+            for (pair in pairs) {
+                if (pair.contains("=")) {
+                    val idx = pair.indexOf("=")
+                    query_pairs.put(pair.substring(0, idx), pair.substring(idx + 1))
+                }
+            }
         }
         if (query_pairs.containsKey("build_id")) {
             guide = mistforge.getGuide(query_pairs.get("build_id")!!.toInt())
@@ -203,7 +211,7 @@ class MistforgeService: AutostartService, KoinComponent {
 
         val upgrades = mutableListOf<Pair<SkillId, UpgradePath>>()
 
-        var skills = ""
+        var skills = "eeeeeeeeee"
         if (guide != null) {
             skills = guide.skills
         }
