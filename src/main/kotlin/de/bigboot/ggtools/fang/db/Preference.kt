@@ -17,5 +17,5 @@ class Preference(id: EntityID<UUID>) : UUIDEntity(id) {
 object Preferences : UUIDTable() {
     val snowflake = long("snowflake")
     val directMessage = bool("direct_message").default(true)
-    val preferredServers = text("preferred_servers")
+    val preferredServers = text("preferred_servers").default("NA,EU")
 }

@@ -14,7 +14,7 @@ class V10__add_user_preferences : BaseJavaMigration() {
 
         context.connection.prepareStatement("""
         |alter table Preferences
-        |    add preferred_servers text default 'NA,EU';
+        |    add preferred_servers text;
         """.trimMargin()).execute()
     }
 }
