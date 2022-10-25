@@ -188,16 +188,15 @@ class MistforgeService: AutostartService, KoinComponent {
             addFile("build.png", img.bytes(PngWriter.MinCompression).inputStream())
         }.await()
     }
-    private suspend fun handleInteraction(event: ComponentInteractionEvent, button: ButtonBuildDetailsId) {
+
+    private suspend fun handleInteraction(event: ComponentInteractionEvent, guide: Guide?, buildId: Int?, heroId: Int, skills: String, summons: String, talent: Int) {
         event.deferReply().withEphemeral(true).awaitSafe()
-
-        val guide = mistforge.getGuide(button.buildId.toInt())
-
-        val hero = heroes.first { it.heroId == guide.heroId }
+       
+        val hero = heroes.first { it.heroId == heroId }
 
         val upgrades = mutableListOf<Pair<SkillId, UpgradePath>>()
 
-        for (c in guide.skills)
+        for (c in skills)
         {
             val skill = (c-'a')/2
             val flipped = (c-'a') % 2 == 0
@@ -215,59 +214,14 @@ class MistforgeService: AutostartService, KoinComponent {
 
         event.editReplyCompat {
             addEmbedCompat {
-                title(guide.title)
-                author(guide.username,  "", "https://mistforge.net/customimg/${guide.userId}.png")
-                description(CopyDown().convert(guide.guide))
-                thumbnail("https://mistforge.net/img/hero_builder/${guide.heroId}/hero.png")
-                url("https://mistforge.net/build_viewer?build_id=${button.buildId}")
-
-                val previousUpgrades = mutableMapOf<SkillId, UpgradePath>()
-                for ((i, pair) in upgrades.withIndex()) {
-                    val (skillId, upgradePath) = pair
-
-                    val previous = previousUpgrades[skillId]
-                    val upgrade = hero.skills[skillId].upgrades.let { when {
-                        previous != null -> it[previous, upgradePath]
-                        else -> it[upgradePath]
-                    } }
-
-                    previousUpgrades[skillId] = upgradePath
-
-                    val value = upgrade.name.en + "\n" + CopyDown().convert(upgrade.description.en)
-
-                    addField("LEVEL ${i+1}", value, false)
+                if (guide != null) {
+                    title(guide.title)
+                    author(guide.username,  "", "https://mistforge.net/customimg/${guide.userId}.png")
+                    description(CopyDown().convert(guide.guide))
+                    url("https://mistforge.net/build_viewer?build_id=${buildId}") 
                 }
-            }
-        }.awaitSafe()
-    }
 
-    private suspend fun handleInteraction(event: ComponentInteractionEvent, button: ButtonBuildDetailsParams) {
-        event.deferReply().withEphemeral(true).awaitSafe()
-
-        val hero = heroes.first { it.heroId == button.heroId }
-
-        val upgrades = mutableListOf<Pair<SkillId, UpgradePath>>()
-
-        for (c in button.skills)
-        {
-            val skill = (c-'a')/2
-            val flipped = (c-'a') % 2 == 0
-
-            val skillId = when(skill) {
-                0 -> SkillId.LMB
-                1 -> SkillId.RMB
-                4 -> SkillId.E
-                3 -> SkillId.Q
-                else -> SkillId.Focus
-            }
-
-            upgrades.add(Pair(skillId, if (flipped) UpgradePath.Left else UpgradePath.Right))
-        }
-
-        event.editReplyCompat {
-            addEmbedCompat {
-                thumbnail("https://mistforge.net/img/hero_builder/${button.heroId}/hero.png")
-                url("https://mistforge.net/build_viewer?hero_id=${button.heroId}&skills=${button.skills}&summons=${button.summons}&talent=${button.talent}")
+                thumbnail("https://mistforge.net/img/hero_builder/${heroId}/hero.png")
 
                 val previousUpgrades = mutableMapOf<SkillId, UpgradePath>()
                 for ((i, pair) in upgrades.withIndex()) {
@@ -290,7 +244,11 @@ class MistforgeService: AutostartService, KoinComponent {
     }
 
     private suspend fun handleInteraction(event: ComponentInteractionEvent) {
-        ButtonBuildDetailsId.parse(event.customId)?.also { handleInteraction(event, it); return }
-        ButtonBuildDetailsParams.parse(event.customId)?.also { handleInteraction(event, it); return }
+        ButtonBuildDetailsId.parse(event.customId)?.also {
+            var guide = mistforge.getGuide(it.buildId.toInt())
+            handleInteraction(event, guide, it.buildId.toInt(), guide.heroId, guide.skills, guide.creatures, guide.talent);
+            return
+        }
+        ButtonBuildDetailsParams.parse(event.customId)?.also { handleInteraction(event, null, null, it.heroId, it.skills, it.summons, it.talent); return }
     }
 }
