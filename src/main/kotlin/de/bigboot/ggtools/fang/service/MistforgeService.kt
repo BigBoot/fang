@@ -17,6 +17,7 @@ import discord4j.core.`object`.component.ActionComponent
 import discord4j.core.`object`.component.ActionRow
 import discord4j.core.`object`.component.Button
 import io.github.furstenheim.CopyDown
+import okhttp3.HttpUrl
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
@@ -33,14 +34,25 @@ interface MistforgeComponentSpec : ComponentSpec {
     }
 }
 
-data class ButtonBuildDetails(val params: String): MistforgeComponentSpec {
-    override fun id() = "$PREFIX:${params}"
+data class ButtonBuildDetailsId(val buildId: String): MistforgeComponentSpec {
+    override fun id() = "$PREFIX:${buildId}"
     override fun component(): ActionComponent = Button.secondary(id(), "Details")
 
     companion object {
-        private val PREFIX = "${MistforgeComponentSpec.ID_PREFIX}:BUTTON:GUIDE_DETAILS"
+        private val PREFIX = "${MistforgeComponentSpec.ID_PREFIX}:BUTTON:GUIDE_DETAILS_ID"
         private val ID_REGEX = Regex("$PREFIX:([^:]+)")
-        fun parse(id: String) = ID_REGEX.find(id)?.destructured?.let { (params) -> ButtonBuildDetails(params) }
+        fun parse(id: String) = ID_REGEX.find(id)?.destructured?.let { (guideId) -> ButtonBuildDetailsId(guideId) }
+    }
+}
+
+data class ButtonBuildDetailsParams(val heroId: Int, val skills: String, val summons: String, val talent: Int): MistforgeComponentSpec {
+    override fun id() = "$PREFIX:${heroId}:${skills}:${summons}:${talent}"
+    override fun component(): ActionComponent = Button.secondary(id(), "Details")
+
+    companion object {
+        private val PREFIX = "${MistforgeComponentSpec.ID_PREFIX}:BUTTON:GUIDE_DETAILS_PARAMS"
+        private val ID_REGEX = Regex("$PREFIX:([^:]+):([^:]+):([^:]+):([^:]+)")
+        fun parse(id: String) = ID_REGEX.find(id)?.destructured?.let { (hero_id, skills, summons, talent) -> ButtonBuildDetailsParams(hero_id.toInt(), skills, summons, talent.toInt()) }
     }
 }
 
@@ -76,28 +88,23 @@ class MistforgeService: AutostartService, KoinComponent {
 
     private suspend fun handleMessage(event: MessageCreateEvent, params: String) {
         var guide: Guide? = null
-        val query_pairs = HashMap<String, String>()
-        if (params.contains("&")) {
-            val pairs = params.split("&")
-            for (pair in pairs) {
-                if (pair.contains("=")) {
-                    val idx = pair.indexOf("=")
-                    query_pairs.put(pair.substring(0, idx), pair.substring(idx + 1))
-                }
-            }
-        }
-        if (query_pairs.containsKey("build_id")) {
-            guide = mistforge.getGuide(query_pairs.get("build_id")!!.toInt())
+        var url = HttpUrl.parse("https://mistforge.net/build_viewer?${params}") ?: return
+        if (url.queryParameter("build_id") == null && 
+                (url.queryParameter("hero_id") == null ||
+                 url.queryParameter("skills") == null ||
+                 url.queryParameter("summons") == null ||
+                 url.queryParameter("talent") == null)
+            ) return
+        
+        if (url.queryParameter("build_id") != null) {
+            guide = mistforge.getGuide(url.queryParameter("build_id")!!.toInt())
         }
 
         var img = background.copy()
 
-        var heroId = 0
-        if (guide != null) {
-            heroId = guide.heroId
-        }
-        else if (query_pairs.containsKey("hero_id")) {
-            heroId = query_pairs.get("hero_id")!!.toInt()
+        val heroId = when (guide) {
+            null -> url.queryParameter("hero_id")!!.toInt()
+            else -> guide.heroId
         }
 
         for (i in 0 until 5) {
@@ -116,16 +123,12 @@ class MistforgeService: AutostartService, KoinComponent {
             val icon = ImmutableImage.loader()
                 .fromBytes(mistforge.getHeroImage(heroId, "${name}.png").bytes())
                 .scaleTo(96, 96, ScaleMethod.Bicubic)
-
             img = img.overlay(icon, x, y)
         }
         
-        var talentId = 0
-        if (guide != null) {
-            talentId = guide.talent
-        }
-        else if (query_pairs.containsKey("talent")) {
-            talentId = query_pairs.get("talent")!!.toInt()
+        val talentId = when (guide) {
+            null -> url.queryParameter("talent")!!.toInt()
+            else -> guide.talent
         }
         
         val talent = ImmutableImage.loader()
@@ -134,13 +137,19 @@ class MistforgeService: AutostartService, KoinComponent {
 
         img = img.overlay(talent, 1117,262)
 
-        var skills = "eeeeeeeeee"
-        if (guide != null) {
-            skills = guide.skills
+        val skills: String = when (guide) {
+            null -> url.queryParameter("skills")!!
+            else -> guide.skills
         }
-        else if (query_pairs.containsKey("skills")) {
-            skills = query_pairs.get("skills")!!
+
+        if (!skills.matches(Regex("^[a-j]{10}$"))) return
+
+        val summons: String = when (guide) {
+            null -> url.queryParameter("summons")!!
+            else -> guide.creatures
         }
+
+        if (!summons.matches(Regex("^[0a-i]{3}$"))) return
 
         for ((i, c) in skills.withIndex())
         {
@@ -159,67 +168,36 @@ class MistforgeService: AutostartService, KoinComponent {
         
         event.message.channel.awaitSingle().createMessageCompat {
             messageReference(event.message.id)
-            if (guide != null) {
-                addEmbedCompat {
+            addEmbedCompat {
+                if (guide != null) {
                     title(guide.title)
-                    thumbnail("https://mistforge.net/img/hero_builder/${heroId}/hero.png")
                     author(guide.username,  "", "https://mistforge.net/customimg/${guide.userId}.png")
                     url("https://mistforge.net/build_viewer?${params}")
                     description(CopyDown().convert(guide.guide).take(150).plus("..."))
-                    image("attachment://build.png")
+                    
+                    addComponent(ActionRow.of(ButtonBuildDetailsId(url.queryParameter("build_id")!!).component()))
                 }
-            }
-            else {
-                addEmbedCompat {
-                    thumbnail("https://mistforge.net/img/hero_builder/${heroId}/hero.png")
-                    image("attachment://build.png")
+                else {
+                    addComponent(ActionRow.of(ButtonBuildDetailsParams(heroId, skills, url.queryParameter("summons")!!, talentId).component()))
                 }
+                thumbnail("https://mistforge.net/img/hero_builder/${heroId}/hero.png")
+                image("attachment://build.png")
             }
 
-            addComponent(ActionRow.of(ButtonBuildDetails(params).component()))
 
             addFile("build.png", img.bytes(PngWriter.MinCompression).inputStream())
         }.await()
     }
-    private suspend fun handleInteraction(event: ComponentInteractionEvent, button: ButtonBuildDetails) {
+    private suspend fun handleInteraction(event: ComponentInteractionEvent, button: ButtonBuildDetailsId) {
         event.deferReply().withEphemeral(true).awaitSafe()
 
-        var guide: Guide? = null
-        val query_pairs = HashMap<String, String>()
-        if (button.params.contains("&")) {
-            val pairs = button.params.split("&")
-            for (pair in pairs) {
-                if (pair.contains("=")) {
-                    val idx = pair.indexOf("=")
-                    query_pairs.put(pair.substring(0, idx), pair.substring(idx + 1))
-                }
-            }
-        }
-        if (query_pairs.containsKey("build_id")) {
-            guide = mistforge.getGuide(query_pairs.get("build_id")!!.toInt())
-        }
+        val guide = mistforge.getGuide(button.buildId.toInt())
 
-        var heroId = 0
-        if (guide != null) {
-            heroId = guide.heroId
-        }
-        else if (query_pairs.containsKey("hero_id")) {
-            heroId = query_pairs.get("hero_id")!!.toInt()
-        }
-
-        val hero = heroes.first { it.heroId == heroId }
+        val hero = heroes.first { it.heroId == guide.heroId }
 
         val upgrades = mutableListOf<Pair<SkillId, UpgradePath>>()
 
-        var skills = "eeeeeeeeee"
-        if (guide != null) {
-            skills = guide.skills
-        }
-        else if (query_pairs.containsKey("skills")) {
-            skills = query_pairs.get("skills")!!
-        }
-
-        for (c in skills)
+        for (c in guide.skills)
         {
             val skill = (c-'a')/2
             val flipped = (c-'a') % 2 == 0
@@ -237,13 +215,59 @@ class MistforgeService: AutostartService, KoinComponent {
 
         event.editReplyCompat {
             addEmbedCompat {
-                if (guide != null) {
-                    title(guide.title)
-                    author(guide.username,  "", "https://mistforge.net/customimg/${guide.userId}.png")
-                    description(CopyDown().convert(guide.guide))
+                title(guide.title)
+                author(guide.username,  "", "https://mistforge.net/customimg/${guide.userId}.png")
+                description(CopyDown().convert(guide.guide))
+                thumbnail("https://mistforge.net/img/hero_builder/${guide.heroId}/hero.png")
+                url("https://mistforge.net/build_viewer?build_id=${button.buildId}")
+
+                val previousUpgrades = mutableMapOf<SkillId, UpgradePath>()
+                for ((i, pair) in upgrades.withIndex()) {
+                    val (skillId, upgradePath) = pair
+
+                    val previous = previousUpgrades[skillId]
+                    val upgrade = hero.skills[skillId].upgrades.let { when {
+                        previous != null -> it[previous, upgradePath]
+                        else -> it[upgradePath]
+                    } }
+
+                    previousUpgrades[skillId] = upgradePath
+
+                    val value = upgrade.name.en + "\n" + CopyDown().convert(upgrade.description.en)
+
+                    addField("LEVEL ${i+1}", value, false)
                 }
-                thumbnail("https://mistforge.net/img/hero_builder/${heroId}/hero.png")
-                url("https://mistforge.net/build_viewer?${button.params}")
+            }
+        }.awaitSafe()
+    }
+
+    private suspend fun handleInteraction(event: ComponentInteractionEvent, button: ButtonBuildDetailsParams) {
+        event.deferReply().withEphemeral(true).awaitSafe()
+
+        val hero = heroes.first { it.heroId == button.heroId }
+
+        val upgrades = mutableListOf<Pair<SkillId, UpgradePath>>()
+
+        for (c in button.skills)
+        {
+            val skill = (c-'a')/2
+            val flipped = (c-'a') % 2 == 0
+
+            val skillId = when(skill) {
+                0 -> SkillId.LMB
+                1 -> SkillId.RMB
+                4 -> SkillId.E
+                3 -> SkillId.Q
+                else -> SkillId.Focus
+            }
+
+            upgrades.add(Pair(skillId, if (flipped) UpgradePath.Left else UpgradePath.Right))
+        }
+
+        event.editReplyCompat {
+            addEmbedCompat {
+                thumbnail("https://mistforge.net/img/hero_builder/${button.heroId}/hero.png")
+                url("https://mistforge.net/build_viewer?hero_id=${button.heroId}&skills=${button.skills}&summons=${button.summons}&talent=${button.talent}")
 
                 val previousUpgrades = mutableMapOf<SkillId, UpgradePath>()
                 for ((i, pair) in upgrades.withIndex()) {
@@ -266,6 +290,7 @@ class MistforgeService: AutostartService, KoinComponent {
     }
 
     private suspend fun handleInteraction(event: ComponentInteractionEvent) {
-        ButtonBuildDetails.parse(event.customId)?.also { handleInteraction(event, it); return }
+        ButtonBuildDetailsId.parse(event.customId)?.also { handleInteraction(event, it); return }
+        ButtonBuildDetailsParams.parse(event.customId)?.also { handleInteraction(event, it); return }
     }
 }
