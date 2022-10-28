@@ -118,8 +118,6 @@ class QueueMessageService : AutostartService, KoinComponent {
         if(request.state != MatchState.MAP_VOTE) return
 
         request.message.editCompat {
-            content(request.pop.allPlayers.joinToString(" ") { "<@$it>" })
-
             addEmbedCompat {
                 title("Map vote")
 
