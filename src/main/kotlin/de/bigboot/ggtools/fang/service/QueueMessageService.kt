@@ -192,7 +192,7 @@ class QueueMessageService : AutostartService, KoinComponent {
             content(pop.players.joinToString(" ") { player -> "<@$player>" })
 
             addEmbedCompat {
-                printQueuePop(pop, endTime, pop.allPlayers, this)
+                printQueuePop(pop, endTime, pop.players, this)
             }
 
             addComponent(ActionRow.of(when(canDeny) {
