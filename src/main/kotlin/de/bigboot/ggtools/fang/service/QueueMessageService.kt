@@ -394,7 +394,7 @@ class QueueMessageService : AutostartService, KoinComponent {
 
     private suspend fun handleInteraction(event: ComponentInteractionEvent, button: ButtonJoin) {
         event.deferEdit().awaitSafe()
-        matchService.join(button.queue, event.interaction.user.id.asLong())
+        matchService.joinInteration(button.queue, event.interaction.user.id.asLong(), false)
         updateQueueMessage(button.queue)
         return
     }
