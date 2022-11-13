@@ -102,7 +102,7 @@ class QueueMessageService : AutostartService, KoinComponent {
 
         msg.editCompat {
             addEmbedCompat { printQueue(queue, this) }
-
+            
             addComponent(ActionRow.of(
                 ButtonJoin(queue).component(),
                 ButtonLeave(queue).component(),
@@ -156,11 +156,14 @@ class QueueMessageService : AutostartService, KoinComponent {
                     |React with a ${Config.emojis.match_drop} to drop out after this match."""
                     .trimMargin()
                 )
-                addField("Best server location", when(request.pop.server) {
-                    "NA" -> Config.emojis.server_pref_na
-                    "EU" -> Config.emojis.server_pref_eu
-                    else -> request.pop.server ?: "None"
-                }, true)
+                
+                if (Config.bot.queues.filter { it.name == request.queue }.single().region_split) {
+                    addField("Best server location", when(request.pop.server) {
+                        "NA" -> Config.emojis.server_pref_na
+                        "EU" -> Config.emojis.server_pref_eu
+                        else -> request.pop.server ?: "None"
+                    }, true)
+                }
 
                 addField("Map", Maps.fromId(request.getMapVoteResult())!!.name, true)
 
@@ -363,15 +366,18 @@ class QueueMessageService : AutostartService, KoinComponent {
             else -> matchService.getPlayers(queue).sortedBy { it.joined }.joinToString("\n") { player ->
                 val joined = Instant.ofEpochMilli(player.joined).epochSecond
                 val preferences = preferencesService.getPreferences(player.snowflake)
-                val preferredServers = preferences.preferredServers
-                    .sortedDescending()
-                    .mapNotNull {
-                        when (it) {
-                            "NA" -> Config.emojis.server_pref_na
-                            "EU" -> Config.emojis.server_pref_eu
-                            else -> null
-                        }
-                    }.joinToString("")
+                val preferredServers = when (Config.bot.queues.filter { it.name == queue }.single().region_split) {
+                    true -> preferences.preferredServers
+                        .sortedDescending()
+                        .mapNotNull {
+                            when (it) {
+                                "NA" -> Config.emojis.server_pref_na
+                                "EU" -> Config.emojis.server_pref_eu
+                                else -> null
+                            }
+                        }.joinToString("")
+                    false -> ""
+                }
                 "<@${player.snowflake}> $preferredServers (In queue since <t:${joined}:R>)"
             }
         })
