@@ -274,7 +274,7 @@ class QueueMessageService : AutostartService, KoinComponent {
             }.awaitSingle()
 
             for (player in accepted) {
-                matchService.join(request.queue, player)
+                matchService.join(request.queue, player, true)
             }
 
             message.deleteAfter(5.minutes)
@@ -285,7 +285,7 @@ class QueueMessageService : AutostartService, KoinComponent {
 
     private suspend fun handleMatchFinished(request: MatchRequest) {
         for (player in request.pop.allPlayers - request.dropPlayers) {
-            matchService.join(request.queue, player)
+            matchService.join(request.queue, player, true)
         }
 
         for (player in request.dropPlayers) {
@@ -394,7 +394,7 @@ class QueueMessageService : AutostartService, KoinComponent {
 
     private suspend fun handleInteraction(event: ComponentInteractionEvent, button: ButtonJoin) {
         event.deferEdit().awaitSafe()
-        matchService.joinInteration(button.queue, event.interaction.user.id.asLong(), false)
+        matchService.join(button.queue, event.interaction.user.id.asLong())
         updateQueueMessage(button.queue)
         return
     }
