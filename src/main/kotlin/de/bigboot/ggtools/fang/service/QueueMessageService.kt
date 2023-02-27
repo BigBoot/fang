@@ -44,7 +44,7 @@ data class MatchRequest(
     val pop: MatchService.Pop,
     val missingPlayers: MutableSet<Long>,
     val matchReady: CompletableFuture<Unit>,
-    val message: Message,
+    var message: Message,
     val finishedPlayers: MutableSet<Long> = mutableSetOf(),
     val dropPlayers: MutableSet<Long> = mutableSetOf(),
     val mapVotes: MutableMap<Long, String> = mutableMapOf(),
@@ -230,6 +230,11 @@ class QueueMessageService : AutostartService, KoinComponent {
         request.state = MatchState.MAP_VOTE
         request.mapVoteEnd = Instant.now().plusSeconds(Config.bot.mapvote_time.toLong())
 
+        request.message.delete().await()
+        matchReuests[matchId]!!.message = request.message.channel.awaitSingle().createMessageCompat {
+            content(request.pop.allPlayers.joinToString(" ") { "<@$it>" })
+        }.awaitSingle()
+        
         updateMapVoteMessage(matchId)
 
         CoroutineScope(Dispatchers.Default).launch {
