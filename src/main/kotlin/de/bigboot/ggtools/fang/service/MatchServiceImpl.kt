@@ -23,7 +23,7 @@ class MatchServiceImpl : MatchService, KoinComponent {
         }
     }
 
-    override fun join(queue: String, snowflake: Long): Boolean {
+    override fun join(queue: String, snowflake: Long, force: Boolean): Boolean {
         transaction {
             val player = Player.find { (Players.snowflake eq snowflake) and (Players.queue eq queue) }
                 .firstOrNull() ?: Player.new {
@@ -32,8 +32,9 @@ class MatchServiceImpl : MatchService, KoinComponent {
                 this.joined = System.currentTimeMillis()
                 this.queue = queue
             }
-
-            player.inMatch = false
+            if (force) {
+                player.inMatch = false
+            }
         }
         return true
     }

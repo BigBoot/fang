@@ -2,7 +2,7 @@ package de.bigboot.ggtools.fang.service
 
 interface MatchService {
 
-    fun join(queue: String, snowflake: Long): Boolean
+    fun join(queue: String, snowflake: Long, force: Boolean = false): Boolean
 
     fun leave(queue: String, snowflake: Long, matchOnly: Boolean = false): Boolean
 
