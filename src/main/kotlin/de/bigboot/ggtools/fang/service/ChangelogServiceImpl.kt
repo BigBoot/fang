@@ -75,7 +75,7 @@ private val CHANGELOG = listOf(
         "Fix queue backfill system not updating queue message",
         "Fix queue system pinging people multiple time when backfilling",
         "Fix match ready button emojis",
-    )
+    ),
     listOf(
         "Fix not pinging everyone for mapvote",
         "Fix missing players sometimes includes players who already accepted",
