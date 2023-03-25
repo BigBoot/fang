@@ -49,6 +49,7 @@ data class BotConfig(
     val log_level: String = "info",
     val queues: List<QueueConfig> = listOf(),
     val highscore_channel: String = "",
+    val acceptable_join_time: Int = 600,
 )
 
 @JsonClass(generateAdapter = true)

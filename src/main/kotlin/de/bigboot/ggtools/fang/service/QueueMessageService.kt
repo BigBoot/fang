@@ -55,6 +55,7 @@ data class MatchRequest(
     var openUrl: String? =null,
     var creatures: Triple<String?, String?, String?> = Triple(null, null, null),
     var state: MatchState = MatchState.QUEUE_POP,
+    var acceptableTime: Instant? = null,
 ) {
     fun getMapVoteResult() = mapVotes
         .values
@@ -175,6 +176,13 @@ class QueueMessageService : AutostartService, KoinComponent {
                 }
 
                 addField("Players", request.pop.allPlayers.joinToString(" ") { "<@$it>" }, false)
+                
+                if(request.acceptableTime != null) {
+                    addField("Acceptable time", when {
+                        Instant.now().compareTo(request.acceptableTime) >= 0 -> "If someone is still not in please report them."
+                        else -> "<t:${request.acceptableTime!!.epochSecond}:R>" 
+                    }, false)
+                }
 
                 addComponent(ActionRow.of(components.map { it.component() }))
             }
@@ -245,7 +253,7 @@ class QueueMessageService : AutostartService, KoinComponent {
 
     private suspend fun handleMapVoteFinished(matchId: UUID) {
         val request = matchReuests[matchId] ?: return
-
+        
         request.state = MatchState.MATCH_READY
         updateMatchReadyMessage(matchId)
 
@@ -550,7 +558,7 @@ class QueueMessageService : AutostartService, KoinComponent {
         event
             .deferReply(InteractionCallbackSpec.builder().ephemeral(true).build())
             .awaitSafe()
-
+        
         updateMatchReadyMessage(button.matchId)
 
         event.editReplyCompat {
@@ -617,6 +625,8 @@ class QueueMessageService : AutostartService, KoinComponent {
 
         request.openUrl = start.openUrl
 
+        request.acceptableTime = Instant.now().plusSeconds(Config.bot.acceptable_join_time.toLong());
+
         event.editReplyCompat {
             addEmbedCompat {
                 title("Server setup")
@@ -626,6 +636,11 @@ class QueueMessageService : AutostartService, KoinComponent {
         }.awaitSafe()
 
         updateMatchReadyMessage(button.matchId)
+        
+        CoroutineScope(Dispatchers.Default).launch {
+            delay(Config.bot.acceptable_join_time.seconds)
+            updateMatchReadyMessage(button.matchId)
+        }
     }
 
     private suspend fun handleInteraction(event: ComponentInteractionEvent)
