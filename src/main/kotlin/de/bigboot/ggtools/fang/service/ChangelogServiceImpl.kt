@@ -80,6 +80,9 @@ private val CHANGELOG = listOf(
         "Fix not pinging everyone for mapvote",
         "Fix missing players sometimes includes players who already accepted",
         "Fix a bug that could cause players to be missing from the final match ready notification",
+    ),
+    listOf(
+        "Add ability to have a time to join"
     )
 )
 
