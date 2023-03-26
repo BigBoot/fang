@@ -55,7 +55,7 @@ data class MatchRequest(
     var openUrl: String? =null,
     var creatures: Triple<String?, String?, String?> = Triple(null, null, null),
     var state: MatchState = MatchState.QUEUE_POP,
-    var acceptableTime: Instant? = null,
+    var timeToJoin: Instant? = null,
 ) {
     fun getMapVoteResult() = mapVotes
         .values
@@ -177,10 +177,10 @@ class QueueMessageService : AutostartService, KoinComponent {
 
                 addField("Players", request.pop.allPlayers.joinToString(" ") { "<@$it>" }, false)
                 
-                if(request.acceptableTime != null) {
-                    addField("Acceptable time", when {
-                        Instant.now().compareTo(request.acceptableTime) >= 0 -> "If someone is still not in please report them."
-                        else -> "<t:${request.acceptableTime!!.epochSecond}:R>" 
+                if(request.timeToJoin != null) {
+                    addField("Time to join", when {
+                        Instant.now().compareTo(request.timeToJoin) >= 0 -> "If someone is still not in please report them."
+                        else -> "<t:${request.timeToJoin!!.epochSecond}:R>" 
                     }, false)
                 }
 
@@ -625,7 +625,7 @@ class QueueMessageService : AutostartService, KoinComponent {
 
         request.openUrl = start.openUrl
 
-        request.acceptableTime = Instant.now().plusSeconds(Config.bot.acceptable_join_time.toLong());
+        request.timeToJoin = Instant.now().plusSeconds(Config.bot.time_to_join.toLong());
 
         event.editReplyCompat {
             addEmbedCompat {
@@ -638,7 +638,7 @@ class QueueMessageService : AutostartService, KoinComponent {
         updateMatchReadyMessage(button.matchId)
         
         CoroutineScope(Dispatchers.Default).launch {
-            delay(Config.bot.acceptable_join_time.seconds)
+            delay(Config.bot.time_to_join.seconds)
             updateMatchReadyMessage(button.matchId)
         }
     }
