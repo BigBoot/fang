@@ -173,7 +173,11 @@ class MistforgeService: AutostartService, KoinComponent {
                     title(guide.title)
                     author(guide.username,  "", "https://mistforge.net/customimg/${guide.userId}.png")
                     url("https://mistforge.net/build_viewer?${params}")
-                    description(CopyDown().convert(guide.guide).take(150).plus("..."))
+                    var description = CopyDown().convert(guide.guide)
+                    if (description.length > 150) {
+                        description = description.take(150).plus("...")
+                    }
+                    description(description)
                     
                     addComponent(ActionRow.of(ButtonBuildDetailsId(url.queryParameter("build_id")!!).component()))
                 }
