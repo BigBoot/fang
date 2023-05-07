@@ -23,7 +23,7 @@ class Match : CommandGroupSpec("match", "Commands for matches") {
                     channel().createMessageCompat {
                         addEmbedCompat {
                             title("Swap commands")
-                            description("Leiren: `${currentServer.openUrl}?team=0`\nGrenn: `${currentServer.openUrl}?team=1`")
+                            description("Leiren: `open ${currentServer.openUrl}?team=0`\nGrenn: `open ${currentServer.openUrl}?team=1`")
                         }
                     }.awaitSingle()
                 }
