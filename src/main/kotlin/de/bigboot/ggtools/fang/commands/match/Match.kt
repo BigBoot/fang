@@ -19,21 +19,17 @@ class Match : CommandGroupSpec("match", "Commands for matches") {
             onCall {
                 val currentServer = queueMessageService.findUser(author().id.asLong());
 
-                if (currentServer != null && currentServer.openUrl != null) {
-                    channel().createMessageCompat {
-                        addEmbedCompat {
+                channel().createMessageCompat {
+                    addEmbedCompat {
+                        if (currentServer != null && currentServer.openUrl != null) {
                             title("Swap commands")
                             description("Leiren: `open ${currentServer.openUrl}?team=0`\nGrenn: `open ${currentServer.openUrl}?team=1`")
                         }
-                    }.awaitSingle()
-                }
-                else {
-                    channel().createMessageCompat {
-                        addEmbedCompat {
+                        else {
                             description("You are not in a game with a server up")
                         }
-                    }.awaitSingle()
-                }
+                    }
+                }.awaitSingle()
             }
         }
     }
