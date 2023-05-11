@@ -5,8 +5,11 @@ import de.bigboot.ggtools.fang.commands.Root
 import de.bigboot.ggtools.fang.utils.*
 import discord4j.common.util.Snowflake
 import discord4j.core.GatewayDiscordClient
+import discord4j.core.`object`.command.ApplicationCommandOption;
 import discord4j.core.`object`.entity.channel.MessageChannel
+import discord4j.core.event.domain.interaction.ChatInputInteractionEvent
 import discord4j.core.event.domain.message.MessageCreateEvent
+import discord4j.core.spec.*
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.reactive.awaitSingle
 import org.koin.core.component.KoinComponent
@@ -23,6 +26,10 @@ class CommandsService : AutostartService, KoinComponent {
         client.eventDispatcher.on<MessageCreateEvent>()
             .filter { it.message.content.startsWith(Config.bot.prefix) }
             .onEachSafe(this::handleCommandEvent)
+            .launch()
+
+        client.eventDispatcher.on<ChatInputInteractionEvent>()
+            .onEachSafe(this::handleSlashEvent)
             .launch()
     }
 
@@ -73,6 +80,8 @@ class CommandsService : AutostartService, KoinComponent {
             return
         }
 
+        var send: (MessageCreateSpec.Builder.() -> Unit)? = null;
+
         when (command) {
             is Command.Invokable -> {
                 val argList = args.asSequence().toList()
@@ -80,18 +89,22 @@ class CommandsService : AutostartService, KoinComponent {
                 if (commandArgs != null) {
                     val invalidArgs = verfiyCommandArguments(command, argList)
                     if (invalidArgs.isEmpty()) {
-                        command.handler(CommandContext(commandArgs, msg))
+                        send = command.handler(CommandContext(commandArgs, msg.channel.awaitSingle(), msg.guild.awaitSingle(), msg.authorAsMember.awaitSingle()))
                     } else {
                         printInvalidArguments(msg.channel.awaitSingle(), command, invalidArgs)
                     }
                 } else {
-                    printCommandHelp(msg.channel.awaitSingle(), command)
+                    send = printCommandHelp(command)
                 }
             }
 
             is Command.Group -> {
-                printCommandHelp(msg.channel.awaitSingle(), command)
+                send = printCommandHelp(command)
             }
+        }
+
+        send.let{
+            msg.channel.awaitSingle().createMessage(MessageCreateSpec.builder().apply(it!!).build()).awaitSingle();
         }
     }
 
@@ -122,32 +135,102 @@ class CommandsService : AutostartService, KoinComponent {
         }.awaitSingle()
     }
 
-    private suspend fun printCommandHelp(channel: MessageChannel, command: Command) {
-        channel.createEmbedCompat {
-            title("Usage: ${formatCommandHelp(command.fullname, command)}")
-            description(command.description)
+    private suspend fun printCommandHelp(command: Command): MessageCreateSpec.Builder.() -> Unit {
+        return {
+            addEmbedCompat {
+                title("Usage: ${formatCommandHelp(command.fullname, command)}")
+                description(command.description)
 
-            when (command) {
-                is Command.Invokable -> {
-                    addField(
-                        "arguments",
-                        command.args.joinToString("\n\n") { "*${it.name}*\n${it.description}" },
-                        false
-                    )
-                }
-                is Command.Group -> {
-                    addField(
-                        "subcommands",
-                        command.commands.values.joinToString("\n\n") {
-                            "${formatCommandHelp(
-                                it.name,
-                                it
-                            )}\n${it.description}"
-                        },
-                        false
-                    )
+                when (command) {
+                    is Command.Invokable -> {
+                        addField(
+                            "arguments",
+                            command.args.joinToString("\n\n") { "*${it.name}*\n${it.description}" },
+                            false
+                        )
+                    }
+                    is Command.Group -> {
+                        addField(
+                            "subcommands",
+                            command.commands.values.joinToString("\n\n") {
+                                "${formatCommandHelp(
+                                       it.name,
+                                       it
+                                   )}\n${it.description}"
+                            },
+                            false
+                        )
+                    }
                 }
             }
-        }.awaitSingle()
+        }
+    }
+
+    private suspend fun handleSlashEvent(event: ChatInputInteractionEvent) {
+        event.deferReply().awaitSafe()
+
+        val interaction = event.interaction;
+
+        var args = event.getOptions();
+
+        var command: Command = commands.commands[event.getCommandName()] ?: return;
+        while (args.size > 0 && command is Command.Group) {
+            val next = args.first();
+            args = next.getOptions();
+            command = command.commands[next.name] ?: return;
+        }
+
+        val namespace = command.namespace
+        val hasPermission = permissionService
+            .getGroupsByUser(interaction.user.id.asLong())
+            .flatMap { it.second }
+            .toSet()
+            .any { permission ->
+                permission
+                    .replace(".", "\\.")
+                    .replace("*", ".*")
+                    .toRegex()
+                    .matches(namespace)
+            }
+
+        if (!hasPermission) {
+            event.editReplyCompat {
+                addEmbedCompat {
+                    description("You do not have permissions to use this command")
+                }
+            }.await()
+            return
+        }
+
+        var returnCommand: MessageCreateSpec.Builder.() -> Unit?;
+
+        when (command) {
+
+            is Command.Invokable -> {
+                val args = args.map { it.value.get().asString() }.toList();
+                val commandArgs = createCommandArguments(command, args)!!;
+                returnCommand = command.handler(CommandContext(commandArgs, interaction.channel.awaitSingle(), interaction.guild.awaitSingle(), interaction.user))
+            }
+
+            is Command.Group -> {
+                returnCommand = printCommandHelp(command);
+            }
+        }
+
+        returnCommand.let{
+            val command = MessageCreateSpec.builder().apply(it).build()
+
+            var interaction = InteractionReplyEditSpec.builder();
+
+            if (!command.content().isAbsent()) {
+                command.content().get().let{interaction = interaction.content(it)}
+            }
+
+            if (!command.embeds().isAbsent()) {
+                command.embeds().get().let{it.forEach { interaction = interaction.addEmbed(it)}}
+            }
+
+            event.editReply(interaction.build()).awaitSingle()
+        }
     }
 }

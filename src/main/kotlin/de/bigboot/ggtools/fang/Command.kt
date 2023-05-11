@@ -1,5 +1,13 @@
 package de.bigboot.ggtools.fang
 
+import de.bigboot.ggtools.fang.service.AutostartService
+import discord4j.discordjson.json.ApplicationCommandOptionData;
+import discord4j.discordjson.json.ApplicationCommandRequest;
+import discord4j.discordjson.json.ImmutableApplicationCommandOptionData;
+import discord4j.core.GatewayDiscordClient
+import discord4j.core.`object`.command.ApplicationCommandOption;
+import discord4j.core.spec.*
+import org.koin.core.component.inject
 import org.koin.core.component.KoinComponent
 
 data class Argument(
@@ -17,7 +25,7 @@ abstract class CommandGroupSpec(val name: String, val description: String) : Koi
     abstract val build: CommandGroupBuilder.() -> Unit
 }
 
-sealed class Command(val name: String, val description: String) {
+sealed class Command(val name: String, val description: String, var slashCommand: ImmutableApplicationCommandOptionData.Builder) {
     var parent: Command? = null
         internal set
 
@@ -25,12 +33,30 @@ sealed class Command(val name: String, val description: String) {
         name: String,
         description: String,
         val args: Array<Argument>,
-        val handler: suspend CommandContext.() -> Unit
+        val handler: suspend CommandContext.() -> MessageCreateSpec.Builder.() -> Unit
     ) :
-        Command(name, description)
+        Command(name, description, run {
+            var command = ApplicationCommandOptionData.builder()
+                                           .name(name)
+                                           .description(description)
+                                           .type(ApplicationCommandOption.Type.SUB_COMMAND.getValue());
+            args.forEach {
+                command = command.addOption(ApplicationCommandOptionData.builder()
+                                                .name(it.name)
+                                                .description(it.description)
+                                                .required(!it.optional)
+                                                .type(ApplicationCommandOption.Type.STRING.getValue())
+                                                .build());
+            }
+            command
+        })
+
 
     class Group(name: String, description: String, override val commands: Map<String, Command>) :
-        Command(name, description), Commands {
+        Command(name, description, ApplicationCommandOptionData.builder()
+                                       .name(name)
+                                       .description(description)
+                                       .type(ApplicationCommandOption.Type.SUB_COMMAND_GROUP.getValue())), Commands {
 
         operator fun plus(other: Command): Group {
             return Group(
@@ -62,14 +88,14 @@ sealed class Command(val name: String, val description: String) {
 }
 
 class CommandBuilder(private val name: String, private val description: String) {
-    private var handler: suspend CommandContext.() -> Unit = {}
+    private var handler: suspend CommandContext.() -> MessageCreateSpec.Builder.() -> Unit = {{}}
     private var args = ArrayList<Argument>()
 
     fun arg(name: String, description: String = "", optional: Boolean = false, verify: ((String) -> Boolean)? = null) {
         this.args.add(Argument(name, description, optional, verify))
     }
 
-    fun onCall(handler: suspend CommandContext.() -> Unit) {
+    fun onCall(handler: suspend CommandContext.() -> MessageCreateSpec.Builder.() -> Unit) {
         this.handler = handler
     }
 
@@ -88,13 +114,27 @@ class CommandBuilder(private val name: String, private val description: String) 
                 }
                 .toTypedArray()
         )
+
+    fun args(): Array<Argument> =
+        this@CommandBuilder.args
+            .sortedBy {
+                if (it.optional) {
+                    1
+                } else {
+                    0
+                }
+            }
+            .toTypedArray()
 }
 
-class CommandGroupBuilder(private val name: String, private val description: String) {
+class CommandGroupBuilder(private val name: String, private val description: String) : AutostartService, KoinComponent {
+    private val client by inject<GatewayDiscordClient>()
     private val commands = HashMap<String, Command>()
 
     fun command(name: String, description: String = "", builder: CommandBuilder.() -> Unit = {}) {
-        commands[name] = CommandBuilder(name, description).apply(builder).build()
+        var commandBuilt = CommandBuilder(name, description).apply(builder);
+
+        commands[name] = commandBuilt.build()
     }
 
     fun group(spec: CommandGroupSpec) {
@@ -108,5 +148,23 @@ class CommandGroupBuilder(private val name: String, private val description: Str
         name = name,
         description = description,
         commands = commands
-    ).apply { commands.values.forEach { it.parent = this } }
+    ).apply {
+        commands.values.forEach { it.parent = this };
+
+        var command = ApplicationCommandRequest.builder()
+            .name(name)
+            .description(description)
+            .type(ApplicationCommandOption.Type.SUB_COMMAND.getValue());
+        commands.values.forEach {
+            command = command.addOption(it.slashCommand.build());
+        }
+
+        val applicationId = client.getRestClient().getApplicationId().block();
+
+        commands.values.forEach {
+            client.getRestClient().getApplicationService()
+                .createGlobalApplicationCommand(applicationId, command.build())
+                .subscribe();
+        }
+    }
 }

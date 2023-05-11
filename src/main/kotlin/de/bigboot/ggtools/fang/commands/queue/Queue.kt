@@ -17,12 +17,12 @@ class Queue : CommandGroupSpec("queue", "Commands for matchmaking") {
     override val build: CommandGroupBuilder.() -> Unit = {
         command("list", "show all available queues") {
             onCall {
-                channel().createMessageCompat {
+                {
                     addEmbedCompat {
                         title("Available queues:")
                         description(Config.bot.queues.joinToString("\n") { it.name })
                     }
-                }.awaitSingle()
+                }
             }
         }
 
@@ -32,11 +32,11 @@ class Queue : CommandGroupSpec("queue", "Commands for matchmaking") {
             onCall {
                 val queue = args["queue"]
 
-                channel().createMessageCompat {
+                {
                     addEmbedCompat {
                         queueMessageService.printQueue(queue, this)
                     }
-                }.awaitSingle()
+                }
             }
         }
 
@@ -49,17 +49,16 @@ class Queue : CommandGroupSpec("queue", "Commands for matchmaking") {
                 val queue = args["queue"]
 
                 if (user == null) {
-                    channel().createEmbedCompat {
+                    return@onCall {addEmbedCompat{
                         description("User ${args["player"]} not found")
-                    }.awaitSingle()
-                    return@onCall
+                    }}
                 }
 
                 matchService.leave(queue, user.id.asLong())
 
-                channel().createEmbedCompat {
+                return@onCall {addEmbedCompat{
                     description("<@${user.id.asString()}> removed from the queue.")
-                }.awaitSingle()
+                }}
             }
         }
 
@@ -72,20 +71,21 @@ class Queue : CommandGroupSpec("queue", "Commands for matchmaking") {
                 val queue = args["queue"]
 
                 if (players == null) {
-                    channel().createEmbedCompat {
+                    return@onCall {addEmbedCompat {
                         description("Sorry, I didn't understand that.")
-                    }.awaitSingle()
-                    return@onCall
+                    }}
                 }
 
                 if (players <= 0) {
-                    channel().createEmbedCompat {
+                    return@onCall {addEmbedCompat {
                             description("You need at least 1 player to request a match!")
-                    }.awaitSingle()
-                    return@onCall
+                    }}
                 }
 
-                matchService.request(queue, Snowflake.of(message.userData.id()).asLong(), players)
+                matchService.request(queue, Snowflake.of(author().userData.id()).asLong(), players)
+                return@onCall {addEmbedCompat {
+                        description("I have created the request!")
+                }}
             }
         }
     }

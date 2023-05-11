@@ -6,9 +6,7 @@ import de.bigboot.ggtools.fang.api.agent.model.AdminPWRequest
 import de.bigboot.ggtools.fang.api.agent.model.KillRequest
 import de.bigboot.ggtools.fang.api.agent.model.StartRequest
 import de.bigboot.ggtools.fang.service.ServerService
-import de.bigboot.ggtools.fang.utils.createEmbedCompat
-import de.bigboot.ggtools.fang.utils.createMessageCompat
-import de.bigboot.ggtools.fang.utils.orNull
+import de.bigboot.ggtools.fang.utils.*
 import discord4j.core.`object`.reaction.ReactionEmoji
 import kotlinx.coroutines.reactive.awaitFirstOrNull
 import kotlinx.coroutines.reactive.awaitSingle
@@ -21,11 +19,11 @@ class Server : CommandGroupSpec("server", "Commands for controlling servers") {
     override val build: CommandGroupBuilder.() -> Unit = {
         command("list", "List all servers") {
             onCall {
-                channel().createEmbedCompat {
+                {addEmbedCompat {
                     title("Servers")
                     description(serverService.getAllServers()
                         .joinToString { "${it.name} -> ${it.url}" })
-                }.awaitSingle()
+                 }}
             }
         }
 
@@ -48,11 +46,9 @@ class Server : CommandGroupSpec("server", "Commands for controlling servers") {
                 val client = serverService.getClient(server)
 
                 if (client == null) {
-                    channel().createEmbedCompat {
+                    return@onCall {addEmbedCompat {
                         description("Unknown server $server.")
-                    }.awaitSingle()
-
-                    return@onCall
+                    }}
                 }
 
                 val request = StartRequest(
@@ -66,14 +62,18 @@ class Server : CommandGroupSpec("server", "Commands for controlling servers") {
                 val response = client.start(request)
 
                 if (response.openUrl != null) {
-                    channel().createEmbedCompat {
+                    return@onCall {addEmbedCompat {
                         description("open ${response.openUrl}")
-                    }.awaitSingle()
+                    }}
                 } else if (response.error != null) {
-                    channel().createEmbedCompat {
+                    return@onCall {addEmbedCompat {
                         description("Couldn't start the server: ${response.error}.")
-                    }.awaitSingle()
+                     }}
                 }
+
+                return@onCall {addEmbedCompat {
+                    description("A unknow error happened :pensive:")
+                }}
             }
         }
 
@@ -88,11 +88,9 @@ class Server : CommandGroupSpec("server", "Commands for controlling servers") {
                 val client = serverService.getClient(server)
 
                 if (client == null) {
-                    channel().createEmbedCompat {
+                    return@onCall {addEmbedCompat {
                         description("Unknown server $server.")
-                    }.awaitSingle()
-
-                    return@onCall
+                    }}
                 }
 
                 val response = client.kill(
@@ -102,13 +100,13 @@ class Server : CommandGroupSpec("server", "Commands for controlling servers") {
                 )
 
                 if (response.error != null) {
-                    channel().createEmbedCompat {
+                    return@onCall {addEmbedCompat {
                         description("Couldn't kill the server: ${response.error}.")
-                    }.awaitSingle()
+                    }}
                 } else {
-                    channel().createEmbedCompat {
+                    return@onCall {addEmbedCompat {
                         description("Server killed")
-                    }.awaitSingle()
+                    }}
                 }
             }
         }
@@ -124,11 +122,9 @@ class Server : CommandGroupSpec("server", "Commands for controlling servers") {
                 val client = serverService.getClient(server)
 
                 if (client == null) {
-                    channel().createEmbedCompat {
+                    return@onCall {addEmbedCompat {
                         description("Unknown server $server.")
-                    }.awaitSingle()
-
-                    return@onCall
+                    }}
                 }
 
                 val response = client.getAdminPW(
@@ -138,15 +134,13 @@ class Server : CommandGroupSpec("server", "Commands for controlling servers") {
                 )
 
                 if (response.adminPW == null) {
-                    channel().createEmbedCompat {
+                    return@onCall {addEmbedCompat {
                         description("No admin password available, are you sure the instance is running?")
-                    }.awaitSingle()
-
-                    return@onCall
+                    }}
                 }
 
-                val privateMessage = message.author.orNull()
-                    ?.privateChannel
+                val privateMessage = author()
+                    .privateChannel
                     ?.awaitSingle()
                     ?.createMessageCompat {
                         content("Admin password for this instance: ${response.adminPW}")
@@ -154,12 +148,16 @@ class Server : CommandGroupSpec("server", "Commands for controlling servers") {
                     ?.onErrorResume { Mono.empty() }
                     ?.awaitFirstOrNull()
 
-                if (privateMessage != null) {
-                    message.addReaction(ReactionEmoji.unicode("\uD83D\uDC4C")).awaitFirstOrNull()
-                } else {
-                    channel().createEmbedCompat {
+                if (privateMessage == null) {
+                    return@onCall {addEmbedCompat {
                         description("Could not send a DM.\nMake sure you can receive direct messages from server members.")
-                    }.awaitSingle()
+                    }}
+                }
+                else {
+                    return@onCall {addEmbedCompat {
+                        description("Sent you the admin password!")
+                    }}
+
                 }
             }
         }

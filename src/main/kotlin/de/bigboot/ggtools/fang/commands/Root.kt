@@ -5,9 +5,7 @@ import de.bigboot.ggtools.fang.CommandGroupSpec
 import de.bigboot.ggtools.fang.commands.admin.Admin
 import de.bigboot.ggtools.fang.commands.queue.Queue
 import de.bigboot.ggtools.fang.commands.server.Server
-import de.bigboot.ggtools.fang.utils.createEmbedCompat
-import de.bigboot.ggtools.fang.utils.formatCommandHelp
-import de.bigboot.ggtools.fang.utils.formatCommandTree
+import de.bigboot.ggtools.fang.utils.*
 import kotlinx.coroutines.reactive.awaitFirst
 
 class Root : CommandGroupSpec("", "") {
@@ -18,28 +16,32 @@ class Root : CommandGroupSpec("", "") {
 
         command("help", "show this help") {
             onCall {
-                channel().createEmbedCompat {
-                    title("Help")
-                    addField(
-                        "commands",
-                        commands.values.joinToString("\n\n") {
-                            "${formatCommandHelp(
-                                it.name,
-                                it
-                            )}\n${it.description}"
-                        },
-                        false
-                    )
-                }.awaitFirst()
+                {
+                    addEmbedCompat {
+                        title("Help")
+                        addField(
+                            "commands",
+                            commands.values.joinToString("\n\n") {
+                                "${formatCommandHelp(
+                                       it.name,
+                                       it
+                                   )}\n${it.description}"
+                            },
+                            false
+                        )
+                    }
+                }
             }
         }
 
         command("commands", "Show all available commands") {
             onCall {
-                channel().createEmbedCompat {
-                    title("Commands")
-                    description("```\n${formatCommandTree(commands.values)}\n```")
-                }.awaitFirst()
+                {
+                    addEmbedCompat {
+                        title("Commands")
+                        description("```\n${formatCommandTree(commands.values)}\n```")
+                    }
+                }
             }
         }
     }

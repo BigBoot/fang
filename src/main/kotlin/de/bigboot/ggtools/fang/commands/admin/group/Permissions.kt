@@ -4,7 +4,7 @@ import de.bigboot.ggtools.fang.CommandGroupBuilder
 import de.bigboot.ggtools.fang.CommandGroupSpec
 import de.bigboot.ggtools.fang.Config
 import de.bigboot.ggtools.fang.service.PermissionService
-import de.bigboot.ggtools.fang.utils.createEmbedCompat
+import de.bigboot.ggtools.fang.utils.*
 import kotlinx.coroutines.reactive.awaitSingle
 import org.koin.core.component.inject
 
@@ -21,14 +21,12 @@ class Permissions : CommandGroupSpec("permissions", "Manage group permissions") 
                 val permission = args["permission"]
 
                 if (group == Config.permissions.admin_group_name) {
-                    channel().createEmbedCompat {
+                    return@onCall {addEmbedCompat{
                         description("The admin groups cannot be modified")
-                    }.awaitSingle()
-
-                    return@onCall
+                    }}
                 }
 
-                channel().createEmbedCompat {
+                {addEmbedCompat{
                     description(
                         when {
                             permissionService.addPermissionToGroup(
@@ -38,7 +36,7 @@ class Permissions : CommandGroupSpec("permissions", "Manage group permissions") 
                             else -> "Group $group not found"
                         }
                     )
-                }.awaitSingle()
+                 }}
             }
         }
 
@@ -51,14 +49,12 @@ class Permissions : CommandGroupSpec("permissions", "Manage group permissions") 
                 val permission = args["permission"]
 
                 if (group == Config.permissions.admin_group_name) {
-                    channel().createEmbedCompat {
+                    return@onCall {addEmbedCompat{
                         description("The admin groups cannot be modified")
-                    }.awaitSingle()
-
-                    return@onCall
+                    }}
                 }
 
-                channel().createEmbedCompat {
+                {addEmbedCompat{
                     description(
                         when {
                             permissionService.removePermissionFromGroup(
@@ -68,7 +64,7 @@ class Permissions : CommandGroupSpec("permissions", "Manage group permissions") 
                             else -> "Group $group not found"
                         }
                     )
-                }.awaitSingle()
+                 }}
             }
         }
     }

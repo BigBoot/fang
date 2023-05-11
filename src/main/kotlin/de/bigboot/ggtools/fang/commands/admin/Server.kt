@@ -3,9 +3,7 @@ package de.bigboot.ggtools.fang.commands.admin
 import de.bigboot.ggtools.fang.CommandGroupBuilder
 import de.bigboot.ggtools.fang.CommandGroupSpec
 import de.bigboot.ggtools.fang.service.ServerService
-import de.bigboot.ggtools.fang.utils.addEmbedCompat
-import de.bigboot.ggtools.fang.utils.createEmbedCompat
-import de.bigboot.ggtools.fang.utils.editCompat
+import de.bigboot.ggtools.fang.utils.*
 import kotlinx.coroutines.reactive.awaitSingle
 import org.koin.core.component.inject
 
@@ -23,23 +21,19 @@ class Server : CommandGroupSpec("server", "Commands for managing servers") {
                 val url = args["url"]
                 val apiKey = args["api_key"]
 
-                val msg = channel().createEmbedCompat {
-                    description("Adding $name to the list of servers")
-                }.awaitSingle()
-
                 if (serverService.checkServer(name, url, apiKey)) {
                     serverService.addServer(name, url, apiKey)
-                    msg.editCompat {
+                    return@onCall {
                         addEmbedCompat {
                             description("Adding $name to the list of servers -> Success")
                         }
-                    }.awaitSingle()
+                    }
                 } else {
-                    msg.editCompat {
+                    return@onCall {
                         addEmbedCompat {
                             description("Adding $name to the list of servers -> Failed")
                         }
-                    }.awaitSingle()
+                    }
                 }
             }
         }
@@ -52,13 +46,13 @@ class Server : CommandGroupSpec("server", "Commands for managing servers") {
 
                 if (serverService.getClient(name) != null) {
                     serverService.removeServer(name)
-                    channel().createEmbedCompat {
+                    return@onCall {addEmbedCompat{
                         description("$name removed from the list of servers.")
-                    }.awaitSingle()
+                    }}
                 } else {
-                    channel().createEmbedCompat {
+                    return@onCall {addEmbedCompat {
                         description("$name not the list of servers.")
-                    }.awaitSingle()
+                    }}
                 }
             }
         }
