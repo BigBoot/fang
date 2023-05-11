@@ -132,7 +132,7 @@ class CommandGroupBuilder(private val name: String, private val description: Str
     private val commands = HashMap<String, Command>()
 
     fun command(name: String, description: String = "", builder: CommandBuilder.() -> Unit = {}) {
-        commands[name] = CommandBuilder(name, description).apply(builder);
+        commands[name] = CommandBuilder(name, description).apply(builder).build();
     }
 
     fun group(spec: CommandGroupSpec) {
