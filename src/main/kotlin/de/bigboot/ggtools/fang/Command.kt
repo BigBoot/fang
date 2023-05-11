@@ -159,10 +159,8 @@ class CommandGroupBuilder(private val name: String, private val description: Str
 
         val applicationId = client.getRestClient().getApplicationId().block();
 
-        commands.values.forEach {
-            client.getRestClient().getApplicationService()
-                .createGlobalApplicationCommand(applicationId, command.build())
-                .subscribe();
-        }
+        client.getRestClient().getApplicationService()
+            .createGlobalApplicationCommand(applicationId, command.build())
+            .subscribe();
     }
 }
