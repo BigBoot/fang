@@ -12,9 +12,11 @@ class User(id: EntityID<UUID>) : UUIDEntity(id) {
     var snowflake by Users.snowflake
     var groups by Group via UsersGroups
 
-    val skill by UserRating referrersOn UsersRating.user
+    var rating by UserRating referencedOn Users.rating
 }
 
 object Users : UUIDTable() {
     val snowflake = long("snowflake")
+
+    val rating = reference("rating", UsersRating)
 }
