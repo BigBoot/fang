@@ -9,10 +9,11 @@ import java.util.*
 class UserRating(id: EntityID<UUID>) : UUIDEntity(id) {
     companion object : UUIDEntityClass<UserRating>(UsersRating)
 
+    var rating by UsersRating.rating
     var ratingDeviation by UsersRating.ratingDeviation
     var volatility by UsersRating.volatility
 
-    val rating by User referrersOn Users.rating
+    val userRating by User referrersOn Users.rating
 }
 
 object UsersRating : UUIDTable() {
