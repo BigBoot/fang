@@ -56,6 +56,7 @@ data class MatchRequest(
     var creatures: Triple<String?, String?, String?> = Triple(null, null, null),
     var state: MatchState = MatchState.QUEUE_POP,
     var timeToJoin: Instant? = null,
+    var teams: Pair<List<Long>, List<Long>>? = null,
 ) {
     fun getMapVoteResult() = mapVotes
         .values
@@ -149,9 +150,9 @@ class QueueMessageService : AutostartService, KoinComponent {
         }
 
         ratingService.addResult(listOf(0, 1), listOf(2, 3));
-
-        println("${ratingService.makeTeams(listOf(0, 1, 2, 3))}")
         */
+
+        request.teams = ratingService.makeTeams(request.pop.allPlayers.toList());
 
         if(request.state != MatchState.MATCH_READY) return
 
@@ -178,7 +179,7 @@ class QueueMessageService : AutostartService, KoinComponent {
 
                 if(request.serverSetupPlayer != null) {
                     val value = when {
-                        request.openUrl != null -> "`open ${request.openUrl}`\nby <@${request.serverSetupPlayer!!.asLong()}>"
+                        request.openUrl != null -> "`open ${request.openUrl}?team=0`\n`open ${request.openUrl}?team=1`\nby <@${request.serverSetupPlayer!!.asLong()}>"
                         else -> "Being set up by <@${request.serverSetupPlayer!!.asLong()}>"
                     }
                     addField("Server", value, false)
@@ -186,7 +187,8 @@ class QueueMessageService : AutostartService, KoinComponent {
                     components.add(ButtonMatchSetupServer(matchId))
                 }
 
-                addField("Players", request.pop.allPlayers.joinToString(" ") { "<@$it>" }, false)
+                addField("Team 1", request.teams!!.first.joinToString(" ") { "<@$it>" }, false)
+                addField("Team 2", request.teams!!.second.joinToString(" ") { "<@$it>" }, false)
                 
                 if(request.timeToJoin != null) {
                     addField("Time to join", when {
