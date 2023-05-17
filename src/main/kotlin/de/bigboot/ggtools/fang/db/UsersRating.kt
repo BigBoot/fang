@@ -13,7 +13,7 @@ class UserRating(id: EntityID<UUID>) : UUIDEntity(id) {
     var ratingDeviation by UsersRating.ratingDeviation
     var volatility by UsersRating.volatility
 
-    val userRating by User referrersOn Users.rating
+    val userRating by User optionalReferrersOn Users.rating
 }
 
 object UsersRating : UUIDTable() {

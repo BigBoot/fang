@@ -72,6 +72,7 @@ class QueueMessageService : AutostartService, KoinComponent {
     private val setupGuildService by inject<SetupGuildService>()
     private val preferencesService by inject<PreferencesService>()
     private val serverService by inject<ServerService>()
+    private val ratingService by inject<RatingService>()
 
     private val matchReuests = hashMapOf<UUID, MatchRequest>()
 
@@ -141,6 +142,12 @@ class QueueMessageService : AutostartService, KoinComponent {
     private suspend fun updateMatchReadyMessage(matchId: UUID)
     {
         val request = matchReuests[matchId] ?: return
+
+        /*
+        request.pop.allPlayers.forEach {
+            println("${ratingService.findUser(it)}");
+        }
+        */
 
         if(request.state != MatchState.MATCH_READY) return
 

@@ -12,6 +12,7 @@ val serviceModule = module {
     single { ServerServiceImpl() } bind ServerService::class
     single { ChangelogServiceImpl() } bind ChangelogService::class
     single { PreferencesServiceImpl() } bind PreferencesService::class
+    single { RatingServiceImpl() } bind RatingService::class
 
     single { SetupGuildServiceImpl() } binds arrayOf(AutostartService::class, SetupGuildService::class)
     single { CommandsService() } bind AutostartService::class
