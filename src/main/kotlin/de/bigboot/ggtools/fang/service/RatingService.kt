@@ -8,4 +8,6 @@ interface RatingService {
 
     fun addResult(winning: List<Long>, loosing: List<Long>)
 
+    fun makeTeams(players: List<Long>): Pair<List<Long>, List<Long>>
+
 }

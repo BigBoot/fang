@@ -148,7 +148,9 @@ class QueueMessageService : AutostartService, KoinComponent {
             println("${ratingService.findUser(it)}");
         }
 
-        ratingService.addResult(listOf(0), listOf(1));
+        ratingService.addResult(listOf(0, 1), listOf(2, 3));
+
+        println("${ratingService.makeTeams(listOf(0, 1, 2, 3))}")
         */
 
         if(request.state != MatchState.MATCH_READY) return

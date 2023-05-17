@@ -64,4 +64,35 @@ class RatingServiceImpl : RatingService, KoinComponent {
             i++;
         }
     }
+
+    override fun makeTeams(players: List<Long>): Pair<List<Long>, List<Long>> {
+        var ratedTeams = players.map{findUser(it)};
+
+        var createdTeams: MutableList<MutableList<UserRating>> = mutableListOf();
+
+        val halfSize = ratedTeams.size/2;
+        val halfScore = ratedTeams.map{it.rating}.sum()/2;
+
+        ratedTeams.forEach {
+            val current = it;
+            for (i in 0 until createdTeams.size) {
+                var new = createdTeams[i].toMutableList();
+                if (new.size != halfSize && new.map{it.rating}.sum()+current.rating <= halfScore) {
+                    new.add(current);
+                    createdTeams.add(new);
+                }
+            }
+            createdTeams.add(mutableListOf(it));
+        }
+
+        val teamOne = createdTeams.filter {it.size == halfSize}.sortedBy {it.map{it.rating}.sum()}.last();
+
+        var teamTwo = ratedTeams.toMutableList();
+
+        teamOne.forEach {
+            teamTwo.remove(it)
+        }
+
+        return Pair(teamOne.map{it.snowflake}, teamTwo.map{it.snowflake})
+    }
 }
