@@ -11,12 +11,8 @@ class User(id: EntityID<UUID>) : UUIDEntity(id) {
 
     var snowflake by Users.snowflake
     var groups by Group via UsersGroups
-
-    var rating by UserRating optionalReferencedOn Users.rating
 }
 
 object Users : UUIDTable() {
     val snowflake = long("snowflake")
-
-    val rating = reference("rating", UsersRating).nullable()
 }

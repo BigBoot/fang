@@ -14,24 +14,15 @@ class RatingServiceImpl : RatingService, KoinComponent {
     private val database: Database by inject()
 
     override fun findUser(snowflake: Long) = transaction(database) {
-        var user = User.find { Users.snowflake eq snowflake }.firstOrNull();
+        val ratingSystem = RatingCalculator(0.06, 0.5);
 
-        if (user == null) {
-            return@transaction null
-        }
+        return@transaction UserRating.find { UsersRating.snowflake eq snowflake }
+            .firstOrNull() ?: UserRating.new {
 
-        if (user.rating == null) {
-            val ratingSystem = RatingCalculator(0.06, 0.5);
-
-            val rating = UserRating.new {
+                this.snowflake = snowflake
                 this.rating = ratingSystem.getDefaultRating()
                 this.ratingDeviation = ratingSystem.getDefaultRatingDeviation()
                 this.volatility = ratingSystem.getDefaultVolatility()
-            }
-
-            user.rating = rating;
-
-        }
-        return@transaction user.rating
+        };
     }
 }
