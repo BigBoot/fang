@@ -147,6 +147,8 @@ class QueueMessageService : AutostartService, KoinComponent {
         request.pop.allPlayers.forEach {
             println("${ratingService.findUser(it)}");
         }
+
+        ratingService.addResult(listOf(0), listOf(1));
         */
 
         if(request.state != MatchState.MATCH_READY) return
