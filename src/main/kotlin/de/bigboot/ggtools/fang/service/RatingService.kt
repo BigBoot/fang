@@ -10,4 +10,6 @@ interface RatingService {
 
     fun makeTeams(players: List<Long>): Pair<List<Long>, List<Long>>
 
+    fun teamDifferential(teams: Pair<List<Long>, List<Long>>): Double
+
 }

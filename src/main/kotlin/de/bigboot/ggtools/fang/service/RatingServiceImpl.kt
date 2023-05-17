@@ -95,4 +95,8 @@ class RatingServiceImpl : RatingService, KoinComponent {
 
         return Pair(teamOne.map{it.snowflake}, teamTwo.map{it.snowflake})
     }
+
+    override fun teamDifferential(teams: Pair<List<Long>, List<Long>>): Double {
+        return teams.first.map{findUser(it).rating}.sum()/teams.second.map{findUser(it).rating}.sum()
+    }
 }
