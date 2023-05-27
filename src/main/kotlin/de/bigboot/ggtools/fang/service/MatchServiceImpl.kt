@@ -77,28 +77,31 @@ class MatchServiceImpl : MatchService, KoinComponent {
 
             val requiredPlayers = Config.bot.required_players - previousPlayers.size
 
+            
+            val (queueServer, players) = when (Config.bot.queues.filter { it.name == queue }.single().region_split) {
+                true -> kotlin.run {
+                    for(i in requiredPlayers until possiblePlayers.size) {
+                        val players = possibleServers
+                            .map { Pair(it, possiblePlayers
+                                .take(i)
+                                .filter { (_, prefs) -> prefs.preferredServers.contains(it) }
+                                .toList()
+                            )}
+                            .maxBy { (_, players) -> players.size }
 
-            val (queueServer, players) = kotlin.run {
-                for(i in requiredPlayers until possiblePlayers.size) {
-                    val players = possibleServers
+                        if (players.second.size >= requiredPlayers) {
+                            return@run players
+                        }
+                    }
+
+                    return@run possibleServers
                         .map { Pair(it, possiblePlayers
-                            .take(i)
                             .filter { (_, prefs) -> prefs.preferredServers.contains(it) }
                             .toList()
                         )}
                         .maxBy { (_, players) -> players.size }
-
-                    if (players.second.size >= requiredPlayers) {
-                        return@run players
-                    }
                 }
-
-                return@run possibleServers
-                    .map { Pair(it, possiblePlayers
-                        .filter { (_, prefs) -> prefs.preferredServers.contains(it) }
-                        .toList()
-                    )}
-                    .maxBy { (_, players) -> players.size }
+                false -> Pair(null, possiblePlayers.take(requiredPlayers))
             }
 
             for ((player, _) in players)
@@ -130,10 +133,15 @@ class MatchServiceImpl : MatchService, KoinComponent {
 
     override fun getNumPlayers(queue: String, server: String?) = transaction(database) {
         val players = getPlayers(queue)
-        val servers = server?.let { setOf(it) } ?: setOf("NA", "EU")
+        if (Config.bot.queues.filter { it.name == queue }.single().region_split) {
+            val servers = server?.let { setOf(it) } ?: setOf("NA", "EU")
 
-        servers.map { players.filter { player -> player.preferredServers.contains(it)} }
-            .maxOf { it.count() }
-            .toLong()
+            servers.map { players.filter { player -> player.preferredServers.contains(it)} }
+                .maxOf { it.count() }
+                .toLong()
+        }
+        else {
+            players.count().toLong()
+        }
     }
 }
