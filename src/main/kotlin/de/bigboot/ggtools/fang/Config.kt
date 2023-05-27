@@ -50,6 +50,7 @@ data class BotConfig(
     val queues: List<QueueConfig> = listOf(),
     val highscore_channel: String = "",
     val time_to_join: Int = 600,
+    val rating: Boolean = true,
 )
 
 @JsonClass(generateAdapter = true)

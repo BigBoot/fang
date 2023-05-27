@@ -177,11 +177,18 @@ class QueueMessageService : AutostartService, KoinComponent {
 
                 addField("Map", Maps.fromId(request.getMapVoteResult())!!.name, true)
 
-                addField("Team Differantial", String.format("%.1f%%", ratingService.teamDifferential(request.teams!!)*100-100), true)
+                if (Config.bot.rating) {
+                    addField("Team Differantial", String.format("%.1f%%", ratingService.teamDifferential(request.teams!!)*100-100), true)
+                }
 
                 if(request.serverSetupPlayer != null) {
                     val value = when {
-                        request.openUrl != null -> "`open ${request.openUrl}?team=0`\n`open ${request.openUrl}?team=1`\nby <@${request.serverSetupPlayer!!.asLong()}>"
+                        request.openUrl != null -> if (Config.bot.rating) {
+                                                       "`open ${request.openUrl}?team=0`\n`open ${request.openUrl}?team=1`\nby <@${request.serverSetupPlayer!!.asLong()}>"
+                                                   }
+                                                   else {
+                                                       "`open ${request.openUrl}`\nby <@${request.serverSetupPlayer!!.asLong()}>"
+                                                   }
                         else -> "Being set up by <@${request.serverSetupPlayer!!.asLong()}>"
                     }
                     addField("Server", value, false)
@@ -189,9 +196,11 @@ class QueueMessageService : AutostartService, KoinComponent {
                     components.add(ButtonMatchSetupServer(matchId))
                 }
 
-                addField("Team 1", request.teams!!.first.joinToString(" ") { "<@$it>" }, false)
-                addField("Team 2", request.teams!!.second.joinToString(" ") { "<@$it>" }, false)
-                
+                if (Config.bot.rating) {
+                    addField("Team 1", request.teams!!.first.joinToString(" ") { "<@$it>" }, false)
+                    addField("Team 2", request.teams!!.second.joinToString(" ") { "<@$it>" }, false)
+                }
+
                 if(request.timeToJoin != null) {
                     addField("Time to join", when {
                         Instant.now().compareTo(request.timeToJoin) >= 0 -> "If someone is still not in please report them."
