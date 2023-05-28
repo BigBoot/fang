@@ -62,6 +62,7 @@ class Rating : CommandGroupSpec("rating", "Commands for ratings") {
             }
         }
 
+        // This is just a command for testing the teams created, this will not actually be pushed into production
         command("maketeam", "make a team") {
             arg("one", "")
             arg("two", "")
