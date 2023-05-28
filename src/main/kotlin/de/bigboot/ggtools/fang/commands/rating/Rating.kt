@@ -61,5 +61,29 @@ class Rating : CommandGroupSpec("rating", "Commands for ratings") {
                 }
             }
         }
+
+        command("maketeam", "make a team") {
+            arg("one", "")
+            arg("two", "")
+            arg("three", "")
+            arg("four", "")
+            arg("five","")
+            arg("six", "")
+            arg("seven", "")
+            arg("eight", "")
+            arg("nine", "")
+            arg("ten", "")
+
+            onCall {
+                var teams = ratingService.makeTeams(listOf(args["one"].toLong(), args["two"].toLong(), args["three"].toLong(), args["four"].toLong(), args["five"].toLong(), args["six"].toLong(), args["seven"].toLong(), args["eight"].toLong(), args["nine"].toLong(), args["ten"].toLong()));
+                var diff = ratingService.teamDifferential(teams);
+
+                channel().createMessageCompat {
+                    addEmbedCompat {
+                        description("team one: <@${teams.first.joinToString("> <@")}>\nteam two: <@${teams.second.joinToString("> <@")}>\ndiff: ${diff}")
+                    }
+                }.awaitSingle()
+            }
+        }
     }
 }

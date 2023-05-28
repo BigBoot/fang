@@ -13,6 +13,7 @@ data class EmojisConfig(
     val deny: String = "\uD83D\uDC4E",
     val match_finished: String = "\uD83C\uDFC1",
     val match_drop: String = "\uD83D\uDC4E",
+    val match_unranked: String = "\uD83C\uDFC5",
     val queue_empty: String = "\uD83D\uDE22",
     val join_queue: String = "\uD83D\uDC4D",
     val leave_queue: String = "\uD83D\uDC4E",

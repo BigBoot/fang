@@ -57,6 +57,7 @@ data class MatchRequest(
     var state: MatchState = MatchState.QUEUE_POP,
     var timeToJoin: Instant? = null,
     var teams: Pair<List<Long>, List<Long>>? = null,
+    var ranked: Snowflake? = null
 ) {
     fun getMapVoteResult() = mapVotes
         .values
@@ -160,6 +161,10 @@ class QueueMessageService : AutostartService, KoinComponent {
             addEmbedCompat {
                 val components = mutableListOf(ButtonMatchFinished(matchId), ButtonMatchDrop(matchId))
 
+                if (Config.bot.rating && request.ranked == null) {
+                    components.add(ButtonMatchUnranked(matchId, false));
+                }
+
                 title("Match ready!")
                 description("""
                     |Everybody get ready, you've got a match.
@@ -199,6 +204,10 @@ class QueueMessageService : AutostartService, KoinComponent {
                 if (Config.bot.rating) {
                     addField("Team 1", request.teams!!.first.joinToString(" ") { "<@$it>" }, false)
                     addField("Team 2", request.teams!!.second.joinToString(" ") { "<@$it>" }, false)
+                }
+
+                if (request.ranked != null) {
+                    addField("Set Unraked by", "<@${request.ranked!!.asLong()}>", false)
                 }
 
                 if(request.timeToJoin != null) {
@@ -590,6 +599,43 @@ class QueueMessageService : AutostartService, KoinComponent {
         }.awaitSafe()
     }
 
+    private suspend fun handleInteraction(event: ComponentInteractionEvent, button: ButtonMatchUnranked) {
+        val request = matchReuests[button.matchId]
+
+        if(request == null || request.ranked != null) {
+            event.deferEdit().awaitSafe()
+            return
+        }
+
+        if (!button.final) {
+            event
+                .deferReply(InteractionCallbackSpec.builder().ephemeral(true).build())
+                .awaitSafe()
+
+            updateMatchReadyMessage(button.matchId)
+
+            event.editReplyCompat {
+                addEmbedCompat {
+                    description("Are you sure you want to set it to unranked? Ill intent use of this will get you reported? If you believe this should be unranked press the set ranked button underthis, if not dismiss this message.")
+                }
+                addComponent(ActionRow.of(ButtonMatchUnranked(button.matchId, true).component()))
+            }.awaitSafe()
+        }
+        else {
+            event.deferEdit().withEphemeral(true).awaitSafe()
+            event.editReplyCompat {
+                addEmbedCompat {
+                    description("You have set this message to be unranked, you can dissmis this message.")
+                }
+                addAllComponents(emptyList())
+            }.awaitSafe()
+
+            request.ranked = event.interaction.user.id
+
+            updateMatchReadyMessage(button.matchId)
+        }
+    }
+
     private suspend fun handleInteraction(event: ComponentInteractionEvent, button: SelectMatchSetupCreatures) {
         val request = matchReuests[button.matchId] ?: return
 
@@ -680,6 +726,7 @@ class QueueMessageService : AutostartService, KoinComponent {
         ButtonMapVote.parse(event.customId)?.also { handleInteraction(event, it); return }
         ButtonMatchDrop.parse(event.customId)?.also { handleInteraction(event, it); return }
         ButtonMatchFinished.parse(event.customId)?.also { handleInteraction(event, it); return }
+        ButtonMatchUnranked.parse(event.customId)?.also { handleInteraction(event, it); return }
         ButtonMatchSetupServer.parse(event.customId)?.also { handleInteraction(event, it); return }
         SelectMatchSetupServer.parse(event.customId)?.also { handleInteraction(event, it); return }
         SelectMatchSetupCreatures.parse(event.customId)?.also { handleInteraction(event, it); return }
