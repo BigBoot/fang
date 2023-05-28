@@ -202,8 +202,8 @@ class QueueMessageService : AutostartService, KoinComponent {
                 }
 
                 if (Config.bot.rating) {
-                    addField("Team 1", request.teams!!.first.joinToString(" ") { "<@$it>" }, false)
-                    addField("Team 2", request.teams!!.second.joinToString(" ") { "<@$it>" }, false)
+                    addField("Team 0", request.teams!!.first.joinToString(" ") { "<@$it>" }, false)
+                    addField("Team 1", request.teams!!.second.joinToString(" ") { "<@$it>" }, false)
                 }
 
                 if (request.ranked != null) {
