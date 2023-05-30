@@ -3,6 +3,8 @@ package de.bigboot.ggtools.fang.service
 import de.bigboot.ggtools.fang.Config
 import de.bigboot.ggtools.fang.api.agent.model.StartRequest
 import de.bigboot.ggtools.fang.api.agent.model.StartResponse
+import de.bigboot.ggtools.fang.api.agent.model.ResultRequest
+import de.bigboot.ggtools.fang.api.agent.model.ResultResponse
 import de.bigboot.ggtools.fang.components.queue.QueueComponentSpec
 import de.bigboot.ggtools.fang.components.queue.*
 import de.bigboot.ggtools.fang.utils.*
@@ -144,14 +146,6 @@ class QueueMessageService : AutostartService, KoinComponent {
     private suspend fun updateMatchReadyMessage(matchId: UUID)
     {
         val request = matchReuests[matchId] ?: return
-
-        /*
-        request.pop.allPlayers.forEach {
-            println("${ratingService.findUser(it)}");
-        }
-
-        ratingService.addResult(listOf(0, 1), listOf(2, 3));
-        */
 
         request.teams = ratingService.makeTeams(request.pop.allPlayers.toList());
 
@@ -565,13 +559,40 @@ class QueueMessageService : AutostartService, KoinComponent {
     }
 
     private suspend fun handleInteraction(event: ComponentInteractionEvent, button: ButtonMatchFinished) {
-        event.deferEdit().awaitSafe()
+        event.deferEdit().withEphemeral(true).awaitSafe()
 
         val request = matchReuests[button.matchId] ?: return
+
         if(request.pop.allPlayers.contains(event.interaction.user.id.asLong())) {
             request.finishedPlayers += event.interaction.user.id.asLong()
 
             if(request.finishedPlayers.size >= 2) {
+                if (Config.bot.rating && request.ranked == null) {
+                    val server = request.server ?: return
+
+                    val api = serverService.getClient(server) ?: return
+
+                    val result = try {
+                        api.getResult(
+                            ResultRequest(
+                                id = request.openUrl!!.split(":").last().toInt(),
+                            )
+                        )
+                    } catch (ex: Exception) {
+                        ResultResponse(null)
+                    }
+
+                    result.winner.let {
+
+                        if (it == "GRIFFIN") {
+                            ratingService.addResult(request.teams!!.first, request.teams!!.second);
+                        }
+                        else {
+                            ratingService.addResult(request.teams!!.second, request.teams!!.first);
+                        }
+                    }
+                }
+
                 handleMatchFinished(request)
                 matchReuests.remove(button.matchId)
             }
