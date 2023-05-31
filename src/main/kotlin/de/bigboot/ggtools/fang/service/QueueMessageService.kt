@@ -3,6 +3,8 @@ package de.bigboot.ggtools.fang.service
 import de.bigboot.ggtools.fang.Config
 import de.bigboot.ggtools.fang.api.agent.model.StartRequest
 import de.bigboot.ggtools.fang.api.agent.model.StartResponse
+import de.bigboot.ggtools.fang.api.agent.model.ResultRequest
+import de.bigboot.ggtools.fang.api.agent.model.ResultResponse
 import de.bigboot.ggtools.fang.components.queue.QueueComponentSpec
 import de.bigboot.ggtools.fang.components.queue.*
 import de.bigboot.ggtools.fang.utils.*
@@ -56,6 +58,8 @@ data class MatchRequest(
     var creatures: Triple<String?, String?, String?> = Triple(null, null, null),
     var state: MatchState = MatchState.QUEUE_POP,
     var timeToJoin: Instant? = null,
+    var teams: Pair<List<Long>, List<Long>>? = null,
+    var ranked: Snowflake? = null
 ) {
     fun getMapVoteResult() = mapVotes
         .values
@@ -72,6 +76,7 @@ class QueueMessageService : AutostartService, KoinComponent {
     private val setupGuildService by inject<SetupGuildService>()
     private val preferencesService by inject<PreferencesService>()
     private val serverService by inject<ServerService>()
+    private val ratingService by inject<RatingService>()
 
     private val matchReuests = hashMapOf<UUID, MatchRequest>()
 
@@ -142,11 +147,17 @@ class QueueMessageService : AutostartService, KoinComponent {
     {
         val request = matchReuests[matchId] ?: return
 
+        request.teams = ratingService.makeTeams(request.pop.allPlayers.toList());
+
         if(request.state != MatchState.MATCH_READY) return
 
         request.message.editCompat {
             addEmbedCompat {
                 val components = mutableListOf(ButtonMatchFinished(matchId), ButtonMatchDrop(matchId))
+
+                if (Config.bot.rating && request.ranked == null) {
+                    components.add(ButtonMatchUnranked(matchId, false));
+                }
 
                 title("Match ready!")
                 description("""
@@ -164,10 +175,18 @@ class QueueMessageService : AutostartService, KoinComponent {
                 }, true)
 
                 addField("Map", Maps.fromId(request.getMapVoteResult())!!.name, true)
+                
+                addField("Team Differential", String.format("%.1f%%", ratingService.teamDifferential(request.teams!!)*100-100), true)
+
 
                 if(request.serverSetupPlayer != null) {
                     val value = when {
-                        request.openUrl != null -> "`open ${request.openUrl}`\nby <@${request.serverSetupPlayer!!.asLong()}>"
+                        request.openUrl != null -> if (Config.bot.rating) {
+                                                       "`open ${request.openUrl}?team=0`\n`open ${request.openUrl}?team=1`\nby <@${request.serverSetupPlayer!!.asLong()}>"
+                                                   }
+                                                   else {
+                                                       "`open ${request.openUrl}`\nby <@${request.serverSetupPlayer!!.asLong()}>"
+                                                   }
                         else -> "Being set up by <@${request.serverSetupPlayer!!.asLong()}>"
                     }
                     addField("Server", value, false)
@@ -175,8 +194,15 @@ class QueueMessageService : AutostartService, KoinComponent {
                     components.add(ButtonMatchSetupServer(matchId))
                 }
 
-                addField("Players", request.pop.allPlayers.joinToString(" ") { "<@$it>" }, false)
-                
+                if (Config.bot.rating) {
+                    addField("Team 0", request.teams!!.first.joinToString(" ") { "<@$it>" }, false)
+                    addField("Team 1", request.teams!!.second.joinToString(" ") { "<@$it>" }, false)
+                }
+
+                if (request.ranked != null) {
+                    addField("Set Unraked by", "<@${request.ranked!!.asLong()}>", false)
+                }
+
                 if(request.timeToJoin != null) {
                     addField("Time to join", when {
                         Instant.now().compareTo(request.timeToJoin) >= 0 -> "If someone is still not in please report them."
@@ -535,10 +561,37 @@ class QueueMessageService : AutostartService, KoinComponent {
         event.deferEdit().awaitSafe()
 
         val request = matchReuests[button.matchId] ?: return
+
         if(request.pop.allPlayers.contains(event.interaction.user.id.asLong())) {
             request.finishedPlayers += event.interaction.user.id.asLong()
 
             if(request.finishedPlayers.size >= 2) {
+                if (Config.bot.rating && request.ranked == null) {
+                    val server = request.server ?: return
+
+                    val api = serverService.getClient(server) ?: return
+
+                    val result = try {
+                        api.getResult(
+                            ResultRequest(
+                                id = request.openUrl!!.split(":").last().toInt(),
+                            )
+                        )
+                    } catch (ex: Exception) {
+                        ResultResponse(null)
+                    }
+
+                    result.winner.let {
+
+                        if (it == "GRIFFIN") {
+                            ratingService.addResult(request.teams!!.first, request.teams!!.second);
+                        }
+                        else {
+                            ratingService.addResult(request.teams!!.second, request.teams!!.first);
+                        }
+                    }
+                }
+
                 handleMatchFinished(request)
                 matchReuests.remove(button.matchId)
             }
@@ -564,6 +617,43 @@ class QueueMessageService : AutostartService, KoinComponent {
         event.editReplyCompat {
             printSetupServer(button.matchId, this)
         }.awaitSafe()
+    }
+
+    private suspend fun handleInteraction(event: ComponentInteractionEvent, button: ButtonMatchUnranked) {
+        val request = matchReuests[button.matchId]
+
+        if(request == null || request.ranked != null) {
+            event.deferEdit().awaitSafe()
+            return
+        }
+
+        if (!button.final) {
+            event
+                .deferReply(InteractionCallbackSpec.builder().ephemeral(true).build())
+                .awaitSafe()
+
+            updateMatchReadyMessage(button.matchId)
+
+            event.editReplyCompat {
+                addEmbedCompat {
+                    description("Are you sure you want to set it to unranked? Ill intent use of this will get you reported? If you believe this should be unranked press the set ranked button under this, if not dismiss this message.")
+                }
+                addComponent(ActionRow.of(ButtonMatchUnranked(button.matchId, true).component()))
+            }.awaitSafe()
+        }
+        else {
+            event.deferEdit().withEphemeral(true).awaitSafe()
+            event.editReplyCompat {
+                addEmbedCompat {
+                    description("You have set this match to be unranked, you can dissmis this message.")
+                }
+                addAllComponents(emptyList())
+            }.awaitSafe()
+
+            request.ranked = event.interaction.user.id
+
+            updateMatchReadyMessage(button.matchId)
+        }
     }
 
     private suspend fun handleInteraction(event: ComponentInteractionEvent, button: SelectMatchSetupCreatures) {
@@ -656,6 +746,7 @@ class QueueMessageService : AutostartService, KoinComponent {
         ButtonMapVote.parse(event.customId)?.also { handleInteraction(event, it); return }
         ButtonMatchDrop.parse(event.customId)?.also { handleInteraction(event, it); return }
         ButtonMatchFinished.parse(event.customId)?.also { handleInteraction(event, it); return }
+        ButtonMatchUnranked.parse(event.customId)?.also { handleInteraction(event, it); return }
         ButtonMatchSetupServer.parse(event.customId)?.also { handleInteraction(event, it); return }
         SelectMatchSetupServer.parse(event.customId)?.also { handleInteraction(event, it); return }
         SelectMatchSetupCreatures.parse(event.customId)?.also { handleInteraction(event, it); return }

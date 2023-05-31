@@ -5,6 +5,7 @@ import de.bigboot.ggtools.fang.CommandGroupSpec
 import de.bigboot.ggtools.fang.commands.admin.Admin
 import de.bigboot.ggtools.fang.commands.queue.Queue
 import de.bigboot.ggtools.fang.commands.server.Server
+import de.bigboot.ggtools.fang.commands.rating.Rating
 import de.bigboot.ggtools.fang.utils.createEmbedCompat
 import de.bigboot.ggtools.fang.utils.formatCommandHelp
 import de.bigboot.ggtools.fang.utils.formatCommandTree
@@ -15,6 +16,7 @@ class Root : CommandGroupSpec("", "") {
         group(Admin())
         group(Queue())
         group(Server())
+        group(Rating())
 
         command("help", "show this help") {
             onCall {

@@ -15,6 +15,7 @@ plugins {
 
 repositories {
     mavenCentral()
+    maven { url = uri("https://jitpack.io") }
 }
 
 group = "de.bigboot.ggtools"
@@ -80,6 +81,9 @@ dependencies {
 
     // CopyDown
     implementation("io.github.furstenheim:copy_down:1.1")
+
+    // Glicko2
+    implementation("io.github.gorgtopalski:glicko2-team:3666e16")
 
     // JUnit
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.9.1")
