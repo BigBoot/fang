@@ -637,7 +637,7 @@ class QueueMessageService : AutostartService, KoinComponent {
 
             event.editReplyCompat {
                 addEmbedCompat {
-                    description("Are you sure you want to set it to unranked? Ill intent use of this will get you reported? If you believe this should be unranked press the set ranked button underthis, if not dismiss this message.")
+                    description("Are you sure you want to set it to unranked? Ill intent use of this will get you reported? If you believe this should be unranked press the set ranked button under this, if not dismiss this message.")
                 }
                 addComponent(ActionRow.of(ButtonMatchUnranked(button.matchId, true).component()))
             }.awaitSafe()
@@ -646,7 +646,7 @@ class QueueMessageService : AutostartService, KoinComponent {
             event.deferEdit().withEphemeral(true).awaitSafe()
             event.editReplyCompat {
                 addEmbedCompat {
-                    description("You have set this message to be unranked, you can dissmis this message.")
+                    description("You have set this match to be unranked, you can dissmis this message.")
                 }
                 addAllComponents(emptyList())
             }.awaitSafe()
