@@ -177,7 +177,7 @@ class QueueMessageService : AutostartService, KoinComponent {
 
                 addField("Map", Maps.fromId(request.getMapVoteResult())!!.name, true)
 
-                addField("Team Differantial", String.format("%.1f%%", ratingService.teamDifferential(request.teams!!)*100-100), true)
+                addField("Team Differential", String.format("%.1f%%", ratingService.teamDifferential(request.teams!!)*100-100), true)
 
                 if(request.serverSetupPlayer != null) {
                     val value = when {
