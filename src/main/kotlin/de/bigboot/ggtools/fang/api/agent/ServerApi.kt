@@ -24,4 +24,7 @@ interface ServerApi {
 
     @POST("events")
     suspend fun getEvents(@Body eventsRequest: EventsRequest): EventsResponse
+
+    @POST("result")
+    suspend fun getResult(@Body resultRequest: ResultRequest): ResultResponse
 }
