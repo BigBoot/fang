@@ -559,7 +559,7 @@ class QueueMessageService : AutostartService, KoinComponent {
     }
 
     private suspend fun handleInteraction(event: ComponentInteractionEvent, button: ButtonMatchFinished) {
-        event.deferEdit().withEphemeral(true).awaitSafe()
+        event.deferEdit().awaitSafe()
 
         val request = matchReuests[button.matchId] ?: return
 
