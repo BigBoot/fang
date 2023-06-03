@@ -83,6 +83,9 @@ private val CHANGELOG = listOf(
     ),
     listOf(
         "Add ability to have a time to join"
+    ),
+    listOf(
+        "Add skill based matchmaking",
     )
 )
 

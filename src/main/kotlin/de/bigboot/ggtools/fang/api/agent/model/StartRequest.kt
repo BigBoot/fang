@@ -18,5 +18,8 @@ data class StartRequest(
     val creature1: String?,
 
     @field:Json(name = "creature2")
-    val creature2: String?
+    val creature2: String?,
+
+    @field:Json(name = "report_url")
+    val reportUrl: String? = null,
 )

@@ -12,11 +12,15 @@ class PreferencesServiceImpl : PreferencesService, KoinComponent {
     override fun getPreferences(snowflake: Long) = transaction(database) {
         Preference.find { (Preferences.snowflake eq snowflake) }
             .firstOrNull()
-            ?.let { PreferencesService.Preferences(it.directMessage, it.preferredServers
-                .split(",")
-                .map { server -> server.trim() }
-                .toSet()) }
-            ?: PreferencesService.Preferences(true, setOf("NA","EU"))
+            ?.let { PreferencesService.Preferences(
+                dmNotifications =  it.directMessage,
+                preferredServers = it.preferredServers
+                    .split(",")
+                    .map { server -> server.trim() }
+                    .toSet(),
+                tokenConnect = it.tokenConnect,
+            ) }
+            ?: PreferencesService.Preferences(true, setOf("NA","EU"), true)
     }
 
     override fun setPreferences(snowflake: Long, preferences: PreferencesService.UpdatePreferences) {
@@ -28,10 +32,12 @@ class PreferencesServiceImpl : PreferencesService, KoinComponent {
                 this.snowflake = snowflake
                 this.directMessage = true
                 this.preferredServers = "NA,EU"
+                this.tokenConnect = true
             }
 
             preferences.dmNotifications?.also { entry.directMessage = it }
             preferences.preferredServers?.also { entry.preferredServers = it.joinToString(",") }
+            preferences.tokenConnect?.also { entry.tokenConnect = it }
         }
     }
 
@@ -42,6 +48,17 @@ class PreferencesServiceImpl : PreferencesService, KoinComponent {
         val result = enabled ?: !preferences.directMessage
 
         preferences.directMessage = result
+
+        result
+    }
+
+    override fun toggleTokenConnect(snowflake: Long, enabled: Boolean?): Boolean = transaction(database) {
+        val preferences = Preference.find { Preferences.snowflake eq snowflake }
+            .firstOrNull() ?: Preference.new { this.snowflake = snowflake }
+
+        val result = enabled ?: !preferences.tokenConnect
+
+        preferences.tokenConnect = result
 
         result
     }

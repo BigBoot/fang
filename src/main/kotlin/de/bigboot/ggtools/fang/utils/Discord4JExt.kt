@@ -131,42 +131,50 @@ suspend fun MessageChannel.messages(): Flux<Message> =
 
 /** Compat **/
 
-@Suppress("HasPlatformType")
-fun MessageChannel.createEmbedCompat(spec: EmbedCreateSpec.Builder.() -> Unit) =
-    createMessage(EmbedCreateSpec.builder().apply(spec).build())
+
+
+@Suppress("REDUNDANT_INLINE_SUSPEND_FUNCTION_TYPE")
+private suspend inline fun <T> T.applySuspend(block: suspend T.() -> Unit): T {
+    block()
+    return this
+}
 
 @Suppress("HasPlatformType")
-fun MessageChannel.createMessageCompat(spec: MessageCreateSpec.Builder.() -> Unit) =
-    createMessage(MessageCreateSpec.builder().apply(spec).build())
+suspend fun MessageChannel.createEmbedCompat(spec: suspend EmbedCreateSpec.Builder.() -> Unit) =
+    createMessage(EmbedCreateSpec.builder().applySuspend(spec).build())
 
 @Suppress("HasPlatformType")
-fun Message.editCompat(spec: MessageEditSpec.Builder.() -> Unit) =
-    edit(MessageEditSpec.builder().apply(spec).build())
+suspend fun MessageChannel.createMessageCompat(spec: suspend MessageCreateSpec.Builder.() -> Unit) =
+    createMessage(MessageCreateSpec.builder().applySuspend(spec).build())
 
 @Suppress("HasPlatformType")
-fun MessageCreateSpec.Builder.addEmbedCompat(spec: EmbedCreateSpec.Builder.() -> Unit) =
-    addEmbed(EmbedCreateSpec.builder().apply(spec).build())
+suspend fun Message.editCompat(spec: suspend MessageEditSpec.Builder.() -> Unit) =
+    edit(MessageEditSpec.builder().applySuspend(spec).build())
 
 @Suppress("HasPlatformType")
-fun MessageEditSpec.Builder.addEmbedCompat(spec: EmbedCreateSpec.Builder.() -> Unit) =
-    addEmbed(EmbedCreateSpec.builder().apply(spec).build())
+suspend fun MessageCreateSpec.Builder.addEmbedCompat(spec: suspend EmbedCreateSpec.Builder.() -> Unit) =
+    addEmbed(EmbedCreateSpec.builder().applySuspend(spec).build())
 
 @Suppress("HasPlatformType")
-fun DeferrableInteractionEvent.replyCompat(spec: InteractionApplicationCommandCallbackSpec.Builder.() -> Unit) =
-    reply(InteractionApplicationCommandCallbackSpec.builder().apply(spec).build())
+suspend fun MessageEditSpec.Builder.addEmbedCompat(spec: suspend EmbedCreateSpec.Builder.() -> Unit) =
+    addEmbed(EmbedCreateSpec.builder().applySuspend(spec).build())
 
 @Suppress("HasPlatformType")
-fun ComponentInteractionEvent.editCompat(spec: InteractionApplicationCommandCallbackSpec.Builder.() -> Unit) =
-    edit(InteractionApplicationCommandCallbackSpec.builder().apply(spec).build())
+suspend fun DeferrableInteractionEvent.replyCompat(spec: suspend InteractionApplicationCommandCallbackSpec.Builder.() -> Unit) =
+    reply(InteractionApplicationCommandCallbackSpec.builder().applySuspend(spec).build())
 
 @Suppress("HasPlatformType")
-fun InteractionApplicationCommandCallbackSpec.Builder.addEmbedCompat(spec: EmbedCreateSpec.Builder.() -> Unit) =
-    addEmbed(EmbedCreateSpec.builder().apply(spec).build())
+suspend fun ComponentInteractionEvent.editCompat(spec: suspend InteractionApplicationCommandCallbackSpec.Builder.() -> Unit) =
+    edit(InteractionApplicationCommandCallbackSpec.builder().applySuspend(spec).build())
 
 @Suppress("HasPlatformType")
-fun InteractionReplyEditSpec.Builder.addEmbedCompat(spec: EmbedCreateSpec.Builder.() -> Unit) =
-    addEmbed(EmbedCreateSpec.builder().apply(spec).build())
+suspend fun InteractionApplicationCommandCallbackSpec.Builder.addEmbedCompat(spec: suspend EmbedCreateSpec.Builder.() -> Unit) =
+    addEmbed(EmbedCreateSpec.builder().applySuspend(spec).build())
 
 @Suppress("HasPlatformType")
-fun DeferrableInteractionEvent.editReplyCompat(spec: InteractionReplyEditSpec.Builder.() -> Unit) =
-    editReply(InteractionReplyEditSpec.builder().apply(spec).build())
+suspend fun InteractionReplyEditSpec.Builder.addEmbedCompat(spec: suspend EmbedCreateSpec.Builder.() -> Unit) =
+    addEmbed(EmbedCreateSpec.builder().applySuspend(spec).build())
+
+@Suppress("HasPlatformType")
+suspend fun DeferrableInteractionEvent.editReplyCompat(spec: suspend InteractionReplyEditSpec.Builder.() -> Unit) =
+    editReply(InteractionReplyEditSpec.builder().applySuspend(spec).build())

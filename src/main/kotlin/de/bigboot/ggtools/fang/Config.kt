@@ -21,6 +21,9 @@ data class EmojisConfig(
     val server_pref_none: String = "\uD83C\uDDFA\uD83C\uDDF3",
     val server_pref_na: String = "\uD83C\uDDFA\uD83C\uDDF8",
     val server_pref_eu: String = "\uD83C\uDDEA\uD83C\uDDFA",
+    val account_linked: String = "\uD83C\uDFC5",
+    val checkbox_on: String = "\u2705",
+    val checkbox_off: String = "\u2B1B",
 )
 
 @JsonClass(generateAdapter = true)

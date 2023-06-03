@@ -3,6 +3,7 @@ package de.bigboot.ggtools.fang.service
 import de.bigboot.ggtools.fang.Config
 import de.bigboot.ggtools.fang.api.agent.model.StartRequest
 import de.bigboot.ggtools.fang.api.agent.model.StartResponse
+import de.bigboot.ggtools.fang.api.emu.model.MatchResponse
 import de.bigboot.ggtools.fang.components.queue.QueueComponentSpec
 import de.bigboot.ggtools.fang.components.queue.*
 import de.bigboot.ggtools.fang.utils.*
@@ -52,10 +53,11 @@ data class MatchRequest(
     var declined: Boolean = false,
     var serverSetupPlayer: Snowflake? = null,
     var server: String? = null,
-    var openUrl: String? =null,
+    var openUrl: String? = null,
     var creatures: Triple<String?, String?, String?> = Triple(null, null, null),
     var state: MatchState = MatchState.QUEUE_POP,
     var timeToJoin: Instant? = null,
+    var match: MatchResponse? = null,
 ) {
     fun getMapVoteResult() = mapVotes
         .values
@@ -72,6 +74,7 @@ class QueueMessageService : AutostartService, KoinComponent {
     private val setupGuildService by inject<SetupGuildService>()
     private val preferencesService by inject<PreferencesService>()
     private val serverService by inject<ServerService>()
+    private val emuService by inject<EmuService>()
 
     private val matchReuests = hashMapOf<UUID, MatchRequest>()
 
@@ -144,6 +147,8 @@ class QueueMessageService : AutostartService, KoinComponent {
 
         if(request.state != MatchState.MATCH_READY) return
 
+        request.match = emuService.requestMatch(request.pop.allPlayers.toList())
+
         request.message.editCompat {
             addEmbedCompat {
                 val components = mutableListOf(ButtonMatchFinished(matchId), ButtonMatchDrop(matchId))
@@ -165,9 +170,20 @@ class QueueMessageService : AutostartService, KoinComponent {
 
                 addField("Map", Maps.fromId(request.getMapVoteResult())!!.name, true)
 
+                when(val match = request.match) {
+                    is MatchResponse -> {
+                        addField("Team Differential", String.format("%.1f%%", (match.team1.averageSkill/match.team2.averageSkill)*100-100), true)
+                    }
+                }
+
                 if(request.serverSetupPlayer != null) {
                     val value = when {
-                        request.openUrl != null -> "`open ${request.openUrl}`\nby <@${request.serverSetupPlayer!!.asLong()}>"
+                        request.openUrl != null -> if (request.match != null) {
+                            "`open ${request.openUrl}?team=0`\n`open ${request.openUrl}?team=1`\nby <@${request.serverSetupPlayer!!.asLong()}>"
+                        } else {
+                            "`open ${request.openUrl}`\nby <@${request.serverSetupPlayer!!.asLong()}>"
+                        }
+
                         else -> "Being set up by <@${request.serverSetupPlayer!!.asLong()}>"
                     }
                     addField("Server", value, false)
@@ -175,7 +191,16 @@ class QueueMessageService : AutostartService, KoinComponent {
                     components.add(ButtonMatchSetupServer(matchId))
                 }
 
-                addField("Players", request.pop.allPlayers.joinToString(" ") { "<@$it>" }, false)
+                when(val match = request.match)
+                {
+                    is MatchResponse -> {
+                        addField("Team 0", match.team1.players.joinToString(" ") { "<@${it.discordId}>" }, false)
+                        addField("Team 1", match.team2.players.joinToString(" ") { "<@${it.discordId}>" }, false)
+                    }
+                    else -> {
+                        addField("Players", request.pop.allPlayers.joinToString(" ") { "<@$it>" }, false)
+                    }
+                }
                 
                 if(request.timeToJoin != null) {
                     addField("Time to join", when {
@@ -350,11 +375,11 @@ class QueueMessageService : AutostartService, KoinComponent {
 
         embed.title("Your preferences")
 
-        val enabled = when (preferences.dmNotifications) {
+        val dmNotifications = when (preferences.dmNotifications) {
             true -> Config.emojis.dm_notifications_enabled
             false -> Config.emojis.dm_notifications_disabled
         }
-        embed.addField("DM Notifications", enabled, true)
+        embed.addField("", "DM Notifications: $dmNotifications", false)
 
         val preferredServers = preferences.preferredServers
             .sortedDescending()
@@ -363,29 +388,42 @@ class QueueMessageService : AutostartService, KoinComponent {
                 "EU" -> Config.emojis.server_pref_eu
                 else -> null
             } }.joinToString("")
-        embed.addField("Preferred servers", preferredServers, true)
+        embed.addField("", "Preferred servers: $preferredServers", false)
+
+        val tokenConnect = when (preferences.tokenConnect) {
+            true -> Config.emojis.checkbox_on
+            false -> Config.emojis.checkbox_off
+        }
+        embed.addField("", "Connect using Token: $tokenConnect", false)
     }
 
-    fun printQueue(queue: String, embed: EmbedCreateSpec.Builder)
+    suspend fun printQueue(queue: String, embed: EmbedCreateSpec.Builder)
     {
         val numPlayers = matchService.getNumPlayers(queue)
 
         embed.title("$numPlayers players waiting in queue")
         embed.description(when (numPlayers) {
             0L -> "No players in queue ${Config.emojis.queue_empty}."
-            else -> matchService.getPlayers(queue).sortedBy { it.joined }.joinToString("\n") { player ->
-                val joined = Instant.ofEpochMilli(player.joined).epochSecond
-                val preferences = preferencesService.getPreferences(player.snowflake)
-                val preferredServers = preferences.preferredServers
-                    .sortedDescending()
-                    .mapNotNull {
-                        when (it) {
-                            "NA" -> Config.emojis.server_pref_na
-                            "EU" -> Config.emojis.server_pref_eu
-                            else -> null
+            else -> matchService.getPlayers(queue).sortedBy { it.joined }
+                    .map { Pair(it, emuService.getUser(it.snowflake)) }
+                    .joinToString("\n") { (player, emuUser) ->
+                        val joined = Instant.ofEpochMilli(player.joined).epochSecond
+                        val preferences = preferencesService.getPreferences(player.snowflake)
+                        val linked = when (emuUser) {
+                            null -> ""
+                            else -> Config.emojis.account_linked
                         }
-                    }.joinToString("")
-                "<@${player.snowflake}> $preferredServers (In queue since <t:${joined}:R>)"
+                        val preferredServers = preferences.preferredServers
+                            .sortedDescending()
+                            .mapNotNull {
+                                when (it) {
+                                    "NA" -> Config.emojis.server_pref_na
+                                    "EU" -> Config.emojis.server_pref_eu
+                                    else -> null
+                                }
+                            }.joinToString("")
+
+                        "<@${player.snowflake}> $linked $preferredServers (In queue since <t:${joined}:R>)"
             }
         })
     }
@@ -429,6 +467,17 @@ class QueueMessageService : AutostartService, KoinComponent {
         updateQueueMessage(button.queue)
     }
 
+    private suspend fun handleInteraction(event: ComponentInteractionEvent, button: ButtonToggleTokenConnect) {
+        event.deferEdit().awaitSafe()
+        preferencesService.toggleTokenConnect(event.interaction.user.id.asLong())
+        event.editReplyCompat {
+            addEmbedCompat {
+                printPreference(event.interaction.user.id, this)
+            }
+        }.await()
+        updateQueueMessage(button.queue)
+    }
+
     private suspend fun handleInteraction(event: ComponentInteractionEvent, button: ButtonPreferences) {
         event.replyCompat {
             addEmbedCompat {
@@ -438,6 +487,7 @@ class QueueMessageService : AutostartService, KoinComponent {
             addComponent(ActionRow.of(
                 ButtonToggleDMNotifications(button.queue).component(),
                 ButtonUpdateServerPreference(button.queue).component(),
+                ButtonToggleTokenConnect(button.queue).component(),
             ))
             ephemeral(true)
         }.await()
@@ -470,6 +520,7 @@ class QueueMessageService : AutostartService, KoinComponent {
             addComponent(ActionRow.of(
                 ButtonToggleDMNotifications(button.queue).component(),
                 ButtonUpdateServerPreference(button.queue).component(),
+                ButtonToggleTokenConnect(button.queue).component(),
             ))
         }.await()
         updateQueueMessage(button.queue)
@@ -599,16 +650,18 @@ class QueueMessageService : AutostartService, KoinComponent {
         }
 
         val api = serverService.getClient(server) ?: return
+        val reportUrl = request.match?.reportToken?.let { emuService.getReportUrl(it) }
 
         val start = try {
             api.start(
                 StartRequest(
-                map = "lv_${request.getMapVoteResult()}",
-                maxPlayers = request.pop.allPlayers.size,
-                creature0 = request.creatures.first,
-                creature1 = request.creatures.second,
-                creature2 = request.creatures.third,
-            )
+                    map = "lv_${request.getMapVoteResult()}",
+                    maxPlayers = request.pop.allPlayers.size,
+                    creature0 = request.creatures.first,
+                    creature1 = request.creatures.second,
+                    creature2 = request.creatures.third,
+                    reportUrl = reportUrl,
+                )
             )
         } catch (ex: Exception) {
             StartResponse(ex.message, null)
@@ -625,7 +678,7 @@ class QueueMessageService : AutostartService, KoinComponent {
 
         request.openUrl = start.openUrl
 
-        request.timeToJoin = Instant.now().plusSeconds(Config.bot.time_to_join.toLong());
+        request.timeToJoin = Instant.now().plusSeconds(Config.bot.time_to_join.toLong())
 
         event.editReplyCompat {
             addEmbedCompat {
@@ -641,6 +694,31 @@ class QueueMessageService : AutostartService, KoinComponent {
             delay(Config.bot.time_to_join.seconds)
             updateMatchReadyMessage(button.matchId)
         }
+
+        val match = request.match
+        if (match != null)
+        {
+            for ((teamId, team) in listOf(Pair(0, match.team1), Pair(1, match.team2)))
+            {
+                for (player in team.players)
+                {
+                    if(player.matchToken == null) continue
+
+                    val snowflake = player.discordId.toLong()
+                    val preferences = preferencesService.getPreferences(snowflake)
+
+                    if (!preferences.tokenConnect) continue
+
+                    val openUrl = "${start.openUrl}/MainMenu?Name=${player.name}?MatchToken=${player.matchToken}?Team=${teamId}"
+
+                    client.getUserById(Snowflake.of(snowflake)).awaitSafe()
+                        ?.privateChannel?.awaitSafe()
+                        ?.createMessageCompat {
+                            content("Here is your unique open command for the current match, please use exactly this command and don't change anything or the match will be invalidated ```open ${openUrl}```")
+                        }?.awaitSafe()
+                }
+            }
+        }
     }
 
     private suspend fun handleInteraction(event: ComponentInteractionEvent)
@@ -648,6 +726,7 @@ class QueueMessageService : AutostartService, KoinComponent {
         ButtonJoin.parse(event.customId)?.also { handleInteraction(event, it); return }
         ButtonLeave.parse(event.customId)?.also { handleInteraction(event, it); return }
         ButtonToggleDMNotifications.parse(event.customId)?.also { handleInteraction(event, it); return }
+        ButtonToggleTokenConnect.parse(event.customId)?.also { handleInteraction(event, it); return }
         ButtonPreferences.parse(event.customId)?.also { handleInteraction(event, it); return }
         ButtonUpdateServerPreference.parse(event.customId)?.also { handleInteraction(event, it); return }
         SelectServerPreference.parse(event.customId)?.also { handleInteraction(event, it); return }
