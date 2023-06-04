@@ -13,26 +13,13 @@ data class MatchResponse(
 
     @field:Json(name = "team2")
     val team2: Team,
-
 ) {
     @JsonClass(generateAdapter = true)
     data class Team(
         @field:Json(name = "players")
-        val players: List<Player>,
+        val players: List<String>,
 
         @field:Json(name = "averageSkill")
         val averageSkill: Double,
-    )
-
-    @JsonClass(generateAdapter = true)
-    data class Player(
-        @field:Json(name = "discordId")
-        val discordId: String,
-
-        @field:Json(name = "name")
-        val name: String?,
-
-        @field:Json(name = "matchToken")
-        val matchToken: String?,
     )
 }

@@ -1,9 +1,6 @@
 package de.bigboot.ggtools.fang.api.emu
 
-import de.bigboot.ggtools.fang.api.emu.model.DiscordUserResponse
-import de.bigboot.ggtools.fang.api.emu.model.MatchRequest
-import de.bigboot.ggtools.fang.api.emu.model.MatchResponse
-import de.bigboot.ggtools.fang.api.emu.model.QueueResponse
+import de.bigboot.ggtools.fang.api.emu.model.*
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
@@ -18,4 +15,7 @@ interface EmuApi {
 
     @POST("match")
     suspend fun postMatch(@Body matchRequest: MatchRequest): MatchResponse
+
+    @POST("match/token")
+    suspend fun postMatchToken(@Body matchTokenRequest: MatchTokenRequest): MatchTokenResponse
 }

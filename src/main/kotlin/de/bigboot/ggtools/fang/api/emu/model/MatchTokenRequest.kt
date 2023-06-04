@@ -4,7 +4,7 @@ import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 
 @JsonClass(generateAdapter = true)
-data class QueueResponse(
-    @field:Json(name = "players")
-    val players: List<String>?,
+data class MatchTokenRequest(
+    @field:Json(name = "discordId")
+    val discordId: String,
 )

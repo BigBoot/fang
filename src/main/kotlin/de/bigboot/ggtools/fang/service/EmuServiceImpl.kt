@@ -4,6 +4,8 @@ import de.bigboot.ggtools.fang.Config
 import de.bigboot.ggtools.fang.api.emu.EmuApi
 import de.bigboot.ggtools.fang.api.emu.model.MatchRequest
 import de.bigboot.ggtools.fang.api.emu.model.MatchResponse
+import de.bigboot.ggtools.fang.api.emu.model.MatchTokenRequest
+import de.bigboot.ggtools.fang.api.emu.model.MatchTokenResponse
 import okhttp3.OkHttpClient
 import org.koin.core.component.KoinComponent
 import retrofit2.Retrofit
@@ -48,5 +50,9 @@ class EmuServiceImpl : EmuService, KoinComponent {
 
     override suspend fun getReportUrl(token: String): String? {
         return Config.emu.url?.let { "${it}/match/report?token=${token}" }
+    }
+
+    override suspend fun getMatchToken(snowflake: Long): MatchTokenResponse? {
+        return try { client?.postMatchToken(MatchTokenRequest(snowflake.toString())) } catch (t: Throwable) { null }
     }
 }

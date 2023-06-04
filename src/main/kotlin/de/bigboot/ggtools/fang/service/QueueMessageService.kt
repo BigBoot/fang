@@ -153,6 +153,11 @@ class QueueMessageService : AutostartService, KoinComponent {
             addEmbedCompat {
                 val components = mutableListOf(ButtonMatchFinished(matchId), ButtonMatchDrop(matchId))
 
+                if(request.openUrl != null && request.match != null)
+                {
+                    components.add(ButtonMatchToken(matchId))
+                }
+
                 title("Match ready!")
                 description("""
                     |Everybody get ready, you've got a match.
@@ -194,8 +199,8 @@ class QueueMessageService : AutostartService, KoinComponent {
                 when(val match = request.match)
                 {
                     is MatchResponse -> {
-                        addField("Suggested Team 0", match.team1.players.joinToString(" ") { "<@${it.discordId}>" }, false)
-                        addField("Suggested Team 1", match.team2.players.joinToString(" ") { "<@${it.discordId}>" }, false)
+                        addField("Suggested Team 0", match.team1.players.joinToString(" ") { "<@${it}>" }, false)
+                        addField("Suggested Team 1", match.team2.players.joinToString(" ") { "<@${it}>" }, false)
                     }
                     else -> {
                         addField("Players", request.pop.allPlayers.joinToString(" ") { "<@$it>" }, false)
@@ -389,12 +394,6 @@ class QueueMessageService : AutostartService, KoinComponent {
                 else -> null
             } }.joinToString("")
         embed.addField("", "Preferred servers: $preferredServers", false)
-
-        val tokenConnect = when (preferences.tokenConnect) {
-            true -> Config.emojis.checkbox_on
-            false -> Config.emojis.checkbox_off
-        }
-        embed.addField("", "Connect using Token: $tokenConnect", false)
     }
 
     suspend fun printQueue(queue: String, embed: EmbedCreateSpec.Builder)
@@ -467,15 +466,54 @@ class QueueMessageService : AutostartService, KoinComponent {
         updateQueueMessage(button.queue)
     }
 
-    private suspend fun handleInteraction(event: ComponentInteractionEvent, button: ButtonToggleTokenConnect) {
-        event.deferEdit().awaitSafe()
-        preferencesService.toggleTokenConnect(event.interaction.user.id.asLong())
+    private suspend fun handleInteraction(event: ComponentInteractionEvent, button: ButtonMatchToken) {
+        event.deferReply().withEphemeral(true).awaitSafe()
+
+        val request = matchReuests[button.matchId] ?: return
+        val match = request.match ?: return
+        val snowflake = event.interaction.user.id.asLong()
+
+        if(request.openUrl == null)
+        {
+            event.editReplyCompat {
+                contentOrNull("There is no server yet, please set it up or wait for someone else to finish setting it up...")
+            }.await()
+
+            return
+        }
+
+        val response = emuService.getMatchToken(snowflake)
+        val teamId = when {
+            match.team1.players.any { it == snowflake.toString() } -> 0
+            match.team2.players.any { it == snowflake.toString() } -> 1
+            else -> null
+        }
+
+        if (response == null) {
+            event.editReplyCompat {
+                contentOrNull("Unable to generate a token, this probably means your account is not linked.")
+            }.await()
+
+            return
+        }
+
         event.editReplyCompat {
             addEmbedCompat {
-                printPreference(event.interaction.user.id, this)
+                title("Match connection info")
+
+                var description = "Here is your unique open command for the current match, please use exactly this command and don't change anything or the match will be invalidated."
+
+                if (teamId != null)
+                {
+                    description += "\n\nYou can either join the assigned team or connect without specifying a team to join, please coordinate with the others players."
+                    addField("Join the assigned team", "```${request.openUrl}/MainMenu?Name=${response.name}?MatchToken=${response.matchToken}?Team=${teamId}```", false)
+                }
+
+                addField("Connect without specifying a team", "```${request.openUrl}/MainMenu?Name=${response.name}?MatchToken=${response.matchToken}```", false)
+
+                description(description)
             }
         }.await()
-        updateQueueMessage(button.queue)
     }
 
     private suspend fun handleInteraction(event: ComponentInteractionEvent, button: ButtonPreferences) {
@@ -486,8 +524,7 @@ class QueueMessageService : AutostartService, KoinComponent {
 
             addComponent(ActionRow.of(
                 ButtonToggleDMNotifications(button.queue).component(),
-                ButtonUpdateServerPreference(button.queue).component(),
-                ButtonToggleTokenConnect(button.queue).component(),
+                ButtonUpdateServerPreference(button.queue).component()
             ))
             ephemeral(true)
         }.await()
@@ -519,8 +556,7 @@ class QueueMessageService : AutostartService, KoinComponent {
 
             addComponent(ActionRow.of(
                 ButtonToggleDMNotifications(button.queue).component(),
-                ButtonUpdateServerPreference(button.queue).component(),
-                ButtonToggleTokenConnect(button.queue).component(),
+                ButtonUpdateServerPreference(button.queue).component()
             ))
         }.await()
         updateQueueMessage(button.queue)
@@ -694,39 +730,6 @@ class QueueMessageService : AutostartService, KoinComponent {
             delay(Config.bot.time_to_join.seconds)
             updateMatchReadyMessage(button.matchId)
         }
-
-        val match = request.match
-        if (match != null)
-        {
-            for ((teamId, team) in listOf(Pair(0, match.team1), Pair(1, match.team2)))
-            {
-                for (player in team.players)
-                {
-                    if(player.matchToken == null) continue
-
-                    val snowflake = player.discordId.toLong()
-                    val preferences = preferencesService.getPreferences(snowflake)
-
-                    if (!preferences.tokenConnect) continue
-
-                    client.getUserById(Snowflake.of(snowflake)).awaitSafe()
-                        ?.privateChannel?.awaitSafe()
-                        ?.createMessageCompat {
-                            addEmbedCompat {
-                                title("Match connection info")
-                                description("""
-                                |Here is your unique open command for the current match, please use exactly this command and don't change anything or the match will be invalidated. 
-                                |
-                                |You can either join the assigned team or connect without specifying a team to join, please coordinate with the others players.
-                                """.trimMargin())
-
-                                addField("Join the assigned team", "${start.openUrl}/MainMenu?Name=${player.name}?MatchToken=${player.matchToken}?Team=${teamId}", false)
-                                addField("Connect without specifying a team", "${start.openUrl}/MainMenu?Name=${player.name}?MatchToken=${player.matchToken}", false)
-                            }
-                        }?.awaitSafe()
-                }
-            }
-        }
     }
 
     private suspend fun handleInteraction(event: ComponentInteractionEvent)
@@ -734,7 +737,6 @@ class QueueMessageService : AutostartService, KoinComponent {
         ButtonJoin.parse(event.customId)?.also { handleInteraction(event, it); return }
         ButtonLeave.parse(event.customId)?.also { handleInteraction(event, it); return }
         ButtonToggleDMNotifications.parse(event.customId)?.also { handleInteraction(event, it); return }
-        ButtonToggleTokenConnect.parse(event.customId)?.also { handleInteraction(event, it); return }
         ButtonPreferences.parse(event.customId)?.also { handleInteraction(event, it); return }
         ButtonUpdateServerPreference.parse(event.customId)?.also { handleInteraction(event, it); return }
         SelectServerPreference.parse(event.customId)?.also { handleInteraction(event, it); return }
@@ -743,6 +745,7 @@ class QueueMessageService : AutostartService, KoinComponent {
         ButtonMapVote.parse(event.customId)?.also { handleInteraction(event, it); return }
         ButtonMatchDrop.parse(event.customId)?.also { handleInteraction(event, it); return }
         ButtonMatchFinished.parse(event.customId)?.also { handleInteraction(event, it); return }
+        ButtonMatchToken.parse(event.customId)?.also { handleInteraction(event, it); return }
         ButtonMatchSetupServer.parse(event.customId)?.also { handleInteraction(event, it); return }
         SelectMatchSetupServer.parse(event.customId)?.also { handleInteraction(event, it); return }
         SelectMatchSetupCreatures.parse(event.customId)?.also { handleInteraction(event, it); return }

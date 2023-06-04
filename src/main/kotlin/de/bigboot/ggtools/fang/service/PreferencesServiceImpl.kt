@@ -17,10 +17,9 @@ class PreferencesServiceImpl : PreferencesService, KoinComponent {
                 preferredServers = it.preferredServers
                     .split(",")
                     .map { server -> server.trim() }
-                    .toSet(),
-                tokenConnect = it.tokenConnect,
+                    .toSet()
             ) }
-            ?: PreferencesService.Preferences(true, setOf("NA","EU"), true)
+            ?: PreferencesService.Preferences(true, setOf("NA","EU"))
     }
 
     override fun setPreferences(snowflake: Long, preferences: PreferencesService.UpdatePreferences) {
@@ -32,12 +31,10 @@ class PreferencesServiceImpl : PreferencesService, KoinComponent {
                 this.snowflake = snowflake
                 this.directMessage = true
                 this.preferredServers = "NA,EU"
-                this.tokenConnect = true
             }
 
             preferences.dmNotifications?.also { entry.directMessage = it }
             preferences.preferredServers?.also { entry.preferredServers = it.joinToString(",") }
-            preferences.tokenConnect?.also { entry.tokenConnect = it }
         }
     }
 
@@ -48,17 +45,6 @@ class PreferencesServiceImpl : PreferencesService, KoinComponent {
         val result = enabled ?: !preferences.directMessage
 
         preferences.directMessage = result
-
-        result
-    }
-
-    override fun toggleTokenConnect(snowflake: Long, enabled: Boolean?): Boolean = transaction(database) {
-        val preferences = Preference.find { Preferences.snowflake eq snowflake }
-            .firstOrNull() ?: Preference.new { this.snowflake = snowflake }
-
-        val result = enabled ?: !preferences.tokenConnect
-
-        preferences.tokenConnect = result
 
         result
     }

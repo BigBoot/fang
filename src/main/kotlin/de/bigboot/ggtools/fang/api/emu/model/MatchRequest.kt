@@ -6,5 +6,5 @@ import com.squareup.moshi.JsonClass
 @JsonClass(generateAdapter = true)
 data class MatchRequest(
     @field:Json(name = "players")
-    val players: List<String>
+    val players: List<String>,
 )
