@@ -177,13 +177,14 @@ class QueueMessageService : AutostartService, KoinComponent {
                 }, true)
 
                 addField("Map", Maps.fromId(request.getMapVoteResult())!!.name, true)
-                
-                addField("Team Differential", String.format("%.1f%%", ratingService.teamDifferential(request.teams!!)*100-100), true)
 
+                if (Config.bot.rating && request.ranked == null) {
+                    addField("Team Differential", String.format("%.1f%%", ratingService.teamDifferential(request.teams!!)*100-100), true)
+                }
 
                 if(request.serverSetupPlayer != null) {
                     val value = when {
-                        request.openUrl != null -> if (Config.bot.rating) {
+                        request.openUrl != null -> if (Config.bot.rating && request.ranked == null) {
                                                        "`open ${request.openUrl}?team=0`\n`open ${request.openUrl}?team=1`\nby <@${request.serverSetupPlayer!!.asLong()}>"
                                                    }
                                                    else {
@@ -196,7 +197,7 @@ class QueueMessageService : AutostartService, KoinComponent {
                     components.add(ButtonMatchSetupServer(matchId))
                 }
 
-                if (Config.bot.rating) {
+                if (Config.bot.rating && request.ranked == null) {
                     addField("Team 0", request.teams!!.first.joinToString(" ") { "<@$it>" }, false)
                     addField("Team 1", request.teams!!.second.joinToString(" ") { "<@$it>" }, false)
                 }
