@@ -147,7 +147,9 @@ class QueueMessageService : AutostartService, KoinComponent {
     {
         val request = matchReuests[matchId] ?: return
 
-        request.teams = ratingService.makeTeams(request.pop.allPlayers.toList());
+        if (request.teams == null) {
+            request.teams = ratingService.makeTeams(request.pop.allPlayers.toList());
+        }
 
         if(request.state != MatchState.MATCH_READY) return
 
