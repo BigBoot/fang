@@ -86,6 +86,9 @@ private val CHANGELOG = listOf(
     ),
     listOf(
         "Add skill based matchmaking",
+    ),
+    listOf(
+        "Improve matchmaking messages",
     )
 )
 

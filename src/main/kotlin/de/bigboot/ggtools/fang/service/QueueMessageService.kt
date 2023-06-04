@@ -194,8 +194,8 @@ class QueueMessageService : AutostartService, KoinComponent {
                 when(val match = request.match)
                 {
                     is MatchResponse -> {
-                        addField("Team 0", match.team1.players.joinToString(" ") { "<@${it.discordId}>" }, false)
-                        addField("Team 1", match.team2.players.joinToString(" ") { "<@${it.discordId}>" }, false)
+                        addField("Suggested Team 0", match.team1.players.joinToString(" ") { "<@${it.discordId}>" }, false)
+                        addField("Suggested Team 1", match.team2.players.joinToString(" ") { "<@${it.discordId}>" }, false)
                     }
                     else -> {
                         addField("Players", request.pop.allPlayers.joinToString(" ") { "<@$it>" }, false)
@@ -709,12 +709,20 @@ class QueueMessageService : AutostartService, KoinComponent {
 
                     if (!preferences.tokenConnect) continue
 
-                    val openUrl = "${start.openUrl}/MainMenu?Name=${player.name}?MatchToken=${player.matchToken}?Team=${teamId}"
-
                     client.getUserById(Snowflake.of(snowflake)).awaitSafe()
                         ?.privateChannel?.awaitSafe()
                         ?.createMessageCompat {
-                            content("Here is your unique open command for the current match, please use exactly this command and don't change anything or the match will be invalidated ```open ${openUrl}```")
+                            addEmbedCompat {
+                                title("Match connection info")
+                                description("""
+                                |Here is your unique open command for the current match, please use exactly this command and don't change anything or the match will be invalidated. 
+                                |
+                                |You can either join the assigned team or connect without specifying a team to join, please coordinate with the others players.
+                                """.trimMargin())
+
+                                addField("Join the assigned team", "${start.openUrl}/MainMenu?Name=${player.name}?MatchToken=${player.matchToken}?Team=${teamId}", false)
+                                addField("Connect without specifying a team", "${start.openUrl}/MainMenu?Name=${player.name}?MatchToken=${player.matchToken}", false)
+                            }
                         }?.awaitSafe()
                 }
             }
