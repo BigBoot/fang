@@ -89,6 +89,9 @@ private val CHANGELOG = listOf(
     ),
     listOf(
         "Improve matchmaking messages",
+    ),
+    listOf(
+        "Add ability to yank server setup from other players",
     )
 )
 

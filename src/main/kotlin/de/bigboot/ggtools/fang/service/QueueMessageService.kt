@@ -182,6 +182,9 @@ class QueueMessageService : AutostartService, KoinComponent {
                 }
 
                 if(request.serverSetupPlayer != null) {
+                    if (request.openUrl == null) {
+                        components.add(ButtonMatchTakeoverServer(matchId))
+                    }
                     val value = when {
                         request.openUrl != null -> if (request.match != null) {
                             "`open ${request.openUrl}?team=0`\n`open ${request.openUrl}?team=1`\nby <@${request.serverSetupPlayer!!.asLong()}>"
@@ -645,7 +648,7 @@ class QueueMessageService : AutostartService, KoinComponent {
         event
             .deferReply(InteractionCallbackSpec.builder().ephemeral(true).build())
             .awaitSafe()
-        
+
         updateMatchReadyMessage(button.matchId)
 
         event.editReplyCompat {
@@ -653,8 +656,35 @@ class QueueMessageService : AutostartService, KoinComponent {
         }.awaitSafe()
     }
 
+    private suspend fun handleInteraction(event: ComponentInteractionEvent, button: ButtonMatchTakeoverServer) {
+        val request = matchReuests[button.matchId]
+
+        if(request?.serverSetupPlayer == null) {
+            event.deferEdit().awaitSafe()
+            return
+        }
+
+        val previousPlayer = request.serverSetupPlayer
+        request.serverSetupPlayer = event.interaction.user.id
+
+        event
+            .deferReply(InteractionCallbackSpec.builder().ephemeral(true).build())
+            .awaitSafe()
+
+        updateMatchReadyMessage(button.matchId)
+
+        event.editReplyCompat {
+            printSetupServer(button.matchId, this)
+        }.awaitSafe()
+
+        request.message.channel.awaitSafe()?.createMessageCompat {
+            content("<@${request.serverSetupPlayer?.asLong()}> yanked the server setup from <@${previousPlayer?.asLong()}>")
+        }?.awaitSafe()?.deleteAfter(60.seconds)
+    }
+
     private suspend fun handleInteraction(event: ComponentInteractionEvent, button: SelectMatchSetupCreatures) {
         val request = matchReuests[button.matchId] ?: return
+        if(request.serverSetupPlayer != event.interaction.user.id) return;
 
         val (creature0, creature1, creature2) = (event as SelectMenuInteractionEvent).values
         request.creatures = Triple(creature0, creature1, creature2)
@@ -665,6 +695,7 @@ class QueueMessageService : AutostartService, KoinComponent {
 
     private suspend fun handleInteraction(event: ComponentInteractionEvent, button: SelectMatchSetupServer) {
         val request = matchReuests[button.matchId] ?: return
+        if(request.serverSetupPlayer != event.interaction.user.id) return;
 
         request.server = (event as SelectMenuInteractionEvent).values.first()
 
@@ -674,6 +705,8 @@ class QueueMessageService : AutostartService, KoinComponent {
 
     private suspend fun handleInteraction(event: ComponentInteractionEvent, button: ButtonMatchStartServer) {
         val request = matchReuests[button.matchId] ?: return
+        if(request.serverSetupPlayer != event.interaction.user.id) return;
+
         val server = request.server
 
         event.deferEdit().withEphemeral(true).awaitSafe()
@@ -750,6 +783,7 @@ class QueueMessageService : AutostartService, KoinComponent {
         SelectMatchSetupServer.parse(event.customId)?.also { handleInteraction(event, it); return }
         SelectMatchSetupCreatures.parse(event.customId)?.also { handleInteraction(event, it); return }
         ButtonMatchStartServer.parse(event.customId)?.also { handleInteraction(event, it); return }
+        ButtonMatchTakeoverServer.parse(event.customId)?.also { handleInteraction(event, it); return }
     }
 
     private suspend fun notifyPlayer(player: Snowflake, channel: Snowflake) {
