@@ -6,6 +6,8 @@ interface MatchService {
 
     fun leave(queue: String, snowflake: Long, matchOnly: Boolean = false): Boolean
 
+    fun setInMatch(queue: String, snowflake: Long)
+
     fun canPop(queue: String): Boolean
 
     fun force(queue: String)

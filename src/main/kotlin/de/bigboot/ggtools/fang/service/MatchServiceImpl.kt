@@ -52,6 +52,14 @@ class MatchServiceImpl : MatchService, KoinComponent {
         }
     }
 
+    override fun setInMatch(queue: String, snowflake: Long) {
+        return transaction {
+            val player = Player.find { (Players.snowflake eq snowflake) and (Players.queue eq queue) }
+                .firstOrNull() ?: return@transaction
+            player.inMatch = true
+        }
+    }
+
     override fun canPop(queue: String): Boolean =
         force.contains(queue) || requests.containsKey(queue) || getNumPlayers(queue) >= Config.bot.required_players
 

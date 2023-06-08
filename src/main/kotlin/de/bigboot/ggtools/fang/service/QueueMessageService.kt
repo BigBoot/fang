@@ -40,6 +40,19 @@ enum class MatchState {
     MATCH_READY,
 }
 
+enum class DropState {
+    WAITING,
+    WAITING_PLAYER,
+    DONE,
+}
+
+data class FillRequest(
+    val matchRequest: UUID,
+    var message: Message? = null,
+    var state: DropState = DropState.WAITING,
+    var filler: Snowflake? = null,
+)
+
 data class MatchRequest(
     val queue: String,
     val popEndTime: Instant,
@@ -59,7 +72,8 @@ data class MatchRequest(
     var state: MatchState = MatchState.QUEUE_POP,
     var timeToJoin: Instant? = null,
     var teams: Pair<List<Long>, List<Long>>? = null,
-    var ranked: Snowflake? = null
+    var ranked: Snowflake? = null,
+    var drops: HashMap<Snowflake, FillRequest> = hashMapOf<Snowflake, FillRequest>(),
 ) {
     fun getMapVoteResult() = mapVotes
         .values
@@ -101,6 +115,10 @@ class QueueMessageService : AutostartService, KoinComponent {
     }
 
     private suspend fun updateQueueMessage(queue: String, msg: Message) {
+        matchReuests.forEach { (uuid, match) ->
+            match.drops.forEach { (dropper, _) -> fillRequest(uuid, dropper, false) }
+        }
+
         if (matchService.canPop(queue)) {
             val channel =  client.getChannelById(msg.channelId).awaitSingle() as MessageChannel
             handleQueuePop(queue, matchService.pop(queue), channel)
@@ -143,23 +161,40 @@ class QueueMessageService : AutostartService, KoinComponent {
         }.awaitSafe()
     }
 
+    private fun getPlayers(request: MatchRequest): Set<Long>  {
+        var players = request.pop.allPlayers
+        request.drops.forEach {
+            (dropper, fillRequest) ->
+                if (fillRequest.state == DropState.DONE) {
+                    players -= dropper.asLong()
+                    players += fillRequest.filler!!.asLong()
+                }
+        }
+
+        return players
+    }
+
     private suspend fun updateMatchReadyMessage(matchId: UUID)
     {
         val request = matchReuests[matchId] ?: return
 
         if (request.teams == null) {
-            request.teams = ratingService.makeTeams(request.pop.allPlayers.toList());
+            request.teams = ratingService.makeTeams(getPlayers(request).toList());
         }
 
         if(request.state != MatchState.MATCH_READY) return
 
         request.message.editCompat {
             addEmbedCompat {
+                content(getPlayers(request).joinToString(" ") { "<@$it>" })
+
                 val components = mutableListOf(ButtonMatchFinished(matchId), ButtonMatchDrop(matchId))
 
                 if (Config.bot.rating && request.ranked == null) {
                     components.add(ButtonMatchUnranked(matchId, false));
                 }
+
+                components.add(ButtonRequestFill(matchId));
 
                 title("Match ready!")
                 description("""
@@ -209,7 +244,7 @@ class QueueMessageService : AutostartService, KoinComponent {
                 if(request.timeToJoin != null) {
                     addField("Time to join", when {
                         Instant.now().compareTo(request.timeToJoin) >= 0 -> "If someone is still not in please report them."
-                        else -> "<t:${request.timeToJoin!!.epochSecond}:R>" 
+                        else -> "<t:${request.timeToJoin!!.epochSecond}:R>"
                     }, false)
                 }
 
@@ -233,8 +268,8 @@ class QueueMessageService : AutostartService, KoinComponent {
             }
 
             addComponent(ActionRow.of(when(canDeny) {
-                true -> listOf(ButtonAccept(matchId), ButtonDecline(matchId))
-                else -> listOf(ButtonAccept(matchId))
+                true -> listOf(ButtonAccept(matchId, null), ButtonDecline(matchId))
+                else -> listOf(ButtonAccept(matchId, null))
             }.map { it.component() }.toMutableList()))
         }.awaitSafe() ?: return
 
@@ -269,9 +304,9 @@ class QueueMessageService : AutostartService, KoinComponent {
 
         request.message.delete().await()
         matchReuests[matchId]!!.message = request.message.channel.awaitSingle().createMessageCompat {
-            content(request.pop.allPlayers.joinToString(" ") { "<@$it>" })
+            content(getPlayers(request).joinToString(" ") { "<@$it>" })
         }.awaitSingle()
-        
+
         updateMapVoteMessage(matchId)
 
         CoroutineScope(Dispatchers.Default).launch {
@@ -282,12 +317,12 @@ class QueueMessageService : AutostartService, KoinComponent {
 
     private suspend fun handleMapVoteFinished(matchId: UUID) {
         val request = matchReuests[matchId] ?: return
-        
+
         request.state = MatchState.MATCH_READY
         updateMatchReadyMessage(matchId)
 
         request.message.deleteAfter(90.minutes) {
-            for (player in request.pop.allPlayers) {
+            for (player in getPlayers(request)) {
                 matchService.leave(request.queue, player, true)
             }
             matchReuests.remove(matchId)
@@ -296,7 +331,7 @@ class QueueMessageService : AutostartService, KoinComponent {
 
     private suspend fun handleMatchCancelled(request: MatchRequest) {
         val message = request.message
-        val accepted =  request.pop.allPlayers - request.missingPlayers
+        val accepted =  getPlayers(request) - request.missingPlayers
 
         for (player in request.missingPlayers) {
             matchService.leave(request.queue, player)
@@ -326,7 +361,7 @@ class QueueMessageService : AutostartService, KoinComponent {
     }
 
     private suspend fun handleMatchFinished(request: MatchRequest) {
-        for (player in request.pop.allPlayers - request.dropPlayers) {
+        for (player in getPlayers(request) - request.dropPlayers) {
             matchService.join(request.queue, player, true)
         }
 
@@ -434,6 +469,116 @@ class QueueMessageService : AutostartService, KoinComponent {
         ))
     }
 
+    private suspend fun acceptQueue(event: ComponentInteractionEvent, button: ButtonAccept) {
+        event.deferEdit().awaitSafe()
+
+        val request = matchReuests[button.matchId] ?: return
+        request.missingPlayers -= event.interaction.user.id.asLong()
+
+
+        if(request.missingPlayers.isEmpty()) {
+            request.matchReady.complete(null)
+        } else {
+            event.editReplyCompat {
+                addEmbedCompat {
+                    printQueuePop(request, this)
+                }
+            }.awaitSafe()
+        }
+    }
+
+    private suspend fun acceptFill(event: ComponentInteractionEvent, button: ButtonAccept) {
+        event.deferEdit().awaitSafe()
+
+        val request = matchReuests[button.matchId] ?: return
+        val dropper = button.dropper ?: return
+        val filler = event.interaction.user.id.asLong()
+        val fill = request.drops[dropper] ?: return
+        val fillFiller = fill.filler ?: return
+
+        if (filler != fillFiller.asLong()) {
+            return
+        }
+
+        fill.state = DropState.DONE
+        fill.message!!.delete().await()
+        request.teams = null
+        updateMatchReadyMessage(button.matchId)
+    }
+
+    private suspend fun fillRequest(matchId: UUID, dropper: Snowflake, timeout: Boolean) {
+        val request = matchReuests[matchId] ?: return
+        val channel = request.message.channel.awaitSingle();
+
+        var fill = request.drops[dropper] ?: FillRequest(matchId)
+
+        if (fill.state == DropState.DONE || (fill.state == DropState.WAITING_PLAYER && !timeout)) {
+            return
+        }
+
+        var message = fill.message;
+
+        if(matchService.getNumPlayers(request.queue, request.pop.server) >= 1) {
+            if (fill.state == DropState.WAITING) {
+                if (message != null) {
+                    message.delete().await()
+                }
+
+                fill.state = DropState.WAITING_PLAYER
+
+                val newPlayer = matchService.pop(request.queue, request.pop.server, setOf()).players.first();
+                val endTime = Instant.now().plusSeconds(Config.bot.accept_timeout.toLong())
+
+                notifyPlayer(Snowflake.of(newPlayer), channel.id)
+
+                fill.message = channel.createMessageCompat {
+                    content("<@${newPlayer}>")
+
+                    addEmbedCompat {
+                        title("Fill Request")
+                        description("<@${dropper.asLong()}> would like to drop, press the Accept button to take the spot.")
+                        addField("Time remaining", "<t:${endTime.epochSecond}:R>", true)
+                    }
+
+                    addComponent(ActionRow.of(ButtonAccept(matchId, dropper).component()))
+                }.awaitSingle()
+
+                fill.filler = Snowflake.of(newPlayer)
+
+                matchService.setInMatch(request.queue, newPlayer)
+                updateQueueMessage(request.queue)
+
+                val fillReady = CompletableFuture<Unit>()
+
+                fillReady.completeOnTimeout(null, Config.bot.accept_timeout.toLong(), TimeUnit.SECONDS)
+
+                CoroutineScope(Dispatchers.Default).launch {
+                    fillReady.await()
+                    if (fill.state == DropState.WAITING_PLAYER) {
+                        matchService.leave(request.queue, newPlayer, true)
+                    }
+                    fillRequest(matchId, dropper, true)
+                }
+            }
+        } else {
+            if (fill.state == DropState.WAITING_PLAYER && message != null) {
+                message.delete().await()
+            }
+            fill.state = DropState.WAITING
+
+            fill.message = channel.createMessageCompat {
+                addEmbedCompat {
+                    title("Fill Request")
+                    description("No one is in the queue to fill for <@${dropper.asLong()}>, please wait for someone to join queue or press cancle")
+                }
+
+                addComponent(ActionRow.of(ButtonRequestFillCancel(matchId, dropper).component()))
+            }.awaitSingle()
+        }
+
+        request.drops[dropper] = fill
+    }
+
     private suspend fun handleInteraction(event: ComponentInteractionEvent, button: ButtonJoin) {
         event.deferEdit().awaitSafe()
         matchService.join(button.queue, event.interaction.user.id.asLong())
@@ -505,20 +650,11 @@ class QueueMessageService : AutostartService, KoinComponent {
     }
 
     private suspend fun handleInteraction(event: ComponentInteractionEvent, button: ButtonAccept) {
-        event.deferEdit().awaitSafe()
-
-        val request = matchReuests[button.matchId] ?: return
-        request.missingPlayers -= event.interaction.user.id.asLong()
-
-
-        if(request.missingPlayers.isEmpty()) {
-            request.matchReady.complete(null)
-        } else {
-            event.editReplyCompat {
-                addEmbedCompat {
-                    printQueuePop(request, this)
-                }
-            }.awaitSafe()
+        if (button.dropper == null) {
+            acceptQueue(event, button)
+        }
+        else {
+            acceptFill(event, button)
         }
     }
 
@@ -544,7 +680,7 @@ class QueueMessageService : AutostartService, KoinComponent {
         event.deferEdit().awaitSafe()
 
         val request = matchReuests[button.matchId] ?: return
-        if(request.pop.allPlayers.contains(event.interaction.user.id.asLong())) {
+        if(getPlayers(request).contains(event.interaction.user.id.asLong())) {
             request.mapVotes += Pair(event.interaction.user.id.asLong(), button.map)
             updateMapVoteMessage(button.matchId)
         }
@@ -554,7 +690,7 @@ class QueueMessageService : AutostartService, KoinComponent {
         event.deferEdit().awaitSafe()
 
         val request = matchReuests[button.matchId] ?: return
-        if(request.pop.allPlayers.contains(event.interaction.user.id.asLong()))
+        if(getPlayers(request).contains(event.interaction.user.id.asLong()))
         {
             request.dropPlayers += event.interaction.user.id.asLong()
         }
@@ -565,7 +701,7 @@ class QueueMessageService : AutostartService, KoinComponent {
 
         val request = matchReuests[button.matchId] ?: return
 
-        if(request.pop.allPlayers.contains(event.interaction.user.id.asLong())) {
+        if(getPlayers(request).contains(event.interaction.user.id.asLong())) {
             request.finishedPlayers += event.interaction.user.id.asLong()
 
             if(request.finishedPlayers.size >= 2) {
@@ -614,7 +750,7 @@ class QueueMessageService : AutostartService, KoinComponent {
         event
             .deferReply(InteractionCallbackSpec.builder().ephemeral(true).build())
             .awaitSafe()
-        
+
         updateMatchReadyMessage(button.matchId)
 
         event.editReplyCompat {
@@ -659,6 +795,37 @@ class QueueMessageService : AutostartService, KoinComponent {
         }
     }
 
+    private suspend fun handleInteraction(event: ComponentInteractionEvent, button: ButtonRequestFill) {
+        val matchId = button.matchId;
+        val dropper = event.interaction.user.id
+
+        val request = matchReuests[matchId] ?: return
+
+        if(getPlayers(request).contains(event.interaction.user.id.asLong()) && request.drops[dropper] == null) {
+            fillRequest(matchId, dropper, false);
+        }
+
+        event.deferEdit().awaitSafe()
+    }
+
+    private suspend fun handleInteraction(event: ComponentInteractionEvent, button: ButtonRequestFillCancel) {
+        val request = matchReuests[button.matchId] ?: return
+        val dropper = event.interaction.user.id
+
+        if (button.dropper != dropper) {
+            return
+        }
+
+        var fill = request.drops[dropper] ?: return
+
+        if (fill.message != null) {
+            fill.message!!.delete().await()
+        }
+
+        request.drops.remove(dropper)
+        event.deferEdit().awaitSafe()
+    }
+
     private suspend fun handleInteraction(event: ComponentInteractionEvent, button: SelectMatchSetupCreatures) {
         val request = matchReuests[button.matchId] ?: return
 
@@ -697,7 +864,7 @@ class QueueMessageService : AutostartService, KoinComponent {
             api.start(
                 StartRequest(
                 map = "lv_${request.getMapVoteResult()}",
-                maxPlayers = request.pop.allPlayers.size,
+                maxPlayers = getPlayers(request).size,
                 creature0 = request.creatures.first,
                 creature1 = request.creatures.second,
                 creature2 = request.creatures.third,
@@ -729,7 +896,7 @@ class QueueMessageService : AutostartService, KoinComponent {
         }.awaitSafe()
 
         updateMatchReadyMessage(button.matchId)
-        
+
         CoroutineScope(Dispatchers.Default).launch {
             delay(Config.bot.time_to_join.seconds)
             updateMatchReadyMessage(button.matchId)
@@ -750,6 +917,8 @@ class QueueMessageService : AutostartService, KoinComponent {
         ButtonMatchDrop.parse(event.customId)?.also { handleInteraction(event, it); return }
         ButtonMatchFinished.parse(event.customId)?.also { handleInteraction(event, it); return }
         ButtonMatchUnranked.parse(event.customId)?.also { handleInteraction(event, it); return }
+        ButtonRequestFill.parse(event.customId)?.also { handleInteraction(event, it); return }
+        ButtonRequestFillCancel.parse(event.customId)?.also { handleInteraction(event, it); return }
         ButtonMatchSetupServer.parse(event.customId)?.also { handleInteraction(event, it); return }
         SelectMatchSetupServer.parse(event.customId)?.also { handleInteraction(event, it); return }
         SelectMatchSetupCreatures.parse(event.customId)?.also { handleInteraction(event, it); return }
