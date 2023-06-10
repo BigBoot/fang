@@ -97,6 +97,14 @@ class RatingServiceImpl : RatingService, KoinComponent {
     }
 
     override fun teamDifferential(teams: Pair<List<Long>, List<Long>>): Double {
-        return teams.first.map{findUser(it).rating}.sum()/teams.second.map{findUser(it).rating}.sum()
+        val teamOne = teams.first.map{findUser(it).rating}.sum()
+        val teamTwo = teams.second.map{findUser(it).rating}.sum()
+
+        if (teamOne > teamTwo) {
+            return teamOne/teamTwo
+        }
+        else {
+            return teamTwo/teamOne
+        }
     }
 }

@@ -13,6 +13,7 @@ import discord4j.core.GatewayDiscordClient
 import discord4j.core.event.domain.interaction.ComponentInteractionEvent
 import discord4j.core.event.domain.interaction.SelectMenuInteractionEvent
 import discord4j.core.`object`.component.ActionRow
+import discord4j.core.`object`.entity.Member
 import discord4j.core.`object`.entity.Message
 import discord4j.core.`object`.entity.channel.MessageChannel
 import discord4j.core.spec.EmbedCreateSpec
@@ -46,11 +47,27 @@ enum class DropState {
     DONE,
 }
 
+enum class SwapState {
+    CREATATION,
+    VOTING,
+}
+
 data class FillRequest(
     val matchRequest: UUID,
     var message: Message? = null,
-    var state: DropState = DropState.WAITING,
+    var state: DropState = DropState.DONE,
     var filler: Snowflake? = null,
+)
+
+data class SwapRequest(
+    val matchRequest: UUID,
+    var message: Message? = null,
+    var state: SwapState = SwapState.CREATATION,
+    var teamOne: Snowflake? = null,
+    var teamTwo: Snowflake? = null,
+    var upVotes: HashSet<Long> = hashSetOf(),
+    var downVotes: HashSet<Long> = hashSetOf(),
+    var endTime: Instant? = null
 )
 
 data class MatchRequest(
@@ -74,6 +91,7 @@ data class MatchRequest(
     var teams: Pair<List<Long>, List<Long>>? = null,
     var ranked: Snowflake? = null,
     var drops: HashMap<Snowflake, FillRequest> = hashMapOf<Snowflake, FillRequest>(),
+    var swaps: HashMap<Snowflake, SwapRequest> = hashMapOf<Snowflake, SwapRequest>(),
 ) {
     fun getMapVoteResult() = mapVotes
         .values
@@ -189,12 +207,11 @@ class QueueMessageService : AutostartService, KoinComponent {
                 content(getPlayers(request).joinToString(" ") { "<@$it>" })
 
                 val components = mutableListOf(ButtonMatchFinished(matchId), ButtonMatchDrop(matchId))
+                val componentsSecond = mutableListOf(ButtonRequestFill(matchId), ButtonSuggestSwap(matchId, false))
 
                 if (Config.bot.rating && request.ranked == null) {
                     components.add(ButtonMatchUnranked(matchId, false));
                 }
-
-                components.add(ButtonRequestFill(matchId));
 
                 title("Match ready!")
                 description("""
@@ -249,6 +266,7 @@ class QueueMessageService : AutostartService, KoinComponent {
                 }
 
                 addComponent(ActionRow.of(components.map { it.component() }))
+                addComponent(ActionRow.of(componentsSecond.map { it.component() }))
             }
         }.awaitSingle()
     }
@@ -300,7 +318,7 @@ class QueueMessageService : AutostartService, KoinComponent {
         }
 
         request.state = MatchState.MAP_VOTE
-        request.mapVoteEnd = Instant.now().plusSeconds(Config.bot.mapvote_time.toLong())
+        request.mapVoteEnd = Instant.now().plusSeconds(Config.bot.vote_time.toLong())
 
         request.message.delete().await()
         matchReuests[matchId]!!.message = request.message.channel.awaitSingle().createMessageCompat {
@@ -310,7 +328,7 @@ class QueueMessageService : AutostartService, KoinComponent {
         updateMapVoteMessage(matchId)
 
         CoroutineScope(Dispatchers.Default).launch {
-            delay(Config.bot.mapvote_time.seconds)
+            delay(Config.bot.vote_time.seconds)
             handleMapVoteFinished(matchId)
         }
     }
@@ -579,6 +597,22 @@ class QueueMessageService : AutostartService, KoinComponent {
         request.drops[dropper] = fill
     }
 
+    private suspend fun updateSwapRequest(request: MatchRequest, suggester: Snowflake) {
+        val swap = request.swaps[suggester] ?: return
+
+        swap.message!!.editCompat {
+            addEmbedCompat {
+                title("Swap Request")
+                description("<@${suggester.asLong()}> has requested a swap, <@${swap.teamOne!!.asLong()}> for <@${swap.teamTwo!!.asLong()}>")
+                addField("Up votes", swap.upVotes.size.toString(), true)
+                addField("Down votes", swap.downVotes.size.toString(), true)
+
+                addField("Time remaining", "<t:${swap.endTime!!.epochSecond}:R>", false)
+            }
+        }.awaitSingle()
+
+    }
+
     private suspend fun handleInteraction(event: ComponentInteractionEvent, button: ButtonJoin) {
         event.deferEdit().awaitSafe()
         matchService.join(button.queue, event.interaction.user.id.asLong())
@@ -795,6 +829,184 @@ class QueueMessageService : AutostartService, KoinComponent {
         }
     }
 
+    private suspend fun handleInteraction(event: ComponentInteractionEvent, select: SelectPickSwap) {
+        val matchId = select.matchId;
+        val suggester = event.interaction.user.id
+
+        val request = matchReuests[matchId] ?: return
+        val swap = request.swaps[suggester]
+        val value = Snowflake.of((event as SelectMenuInteractionEvent).values.first())
+
+        if (swap != null) {
+            if (select.team == false) {
+                swap.teamOne = value
+            }
+            else {
+                swap.teamTwo = value
+            }
+        }
+        event.deferEdit().awaitSafe()
+    }
+
+    private suspend fun handleInteraction(event: ComponentInteractionEvent, button: ButtonSuggestSwap) {
+        val matchId = button.matchId;
+        val suggester = event.interaction.user.id
+        val guild = event.interaction.guild.awaitSingle().id
+        val channel = event.interaction.channel.awaitSingle()
+
+        val request = matchReuests[matchId] ?: return
+        var swap = request.swaps[suggester]
+
+        if (!button.final) {
+            if(getPlayers(request).contains(event.interaction.user.id.asLong()) && (swap == null || swap.state == SwapState.CREATATION)) {
+                request.swaps[suggester] = SwapRequest(matchId)
+
+                val (teamOne, teamTwo) = request.teams!!.toList().map {
+                    it.map {
+                        Pair(
+                            client.getMemberById(
+                                guild,
+                                Snowflake.of(it)
+                            ).await()!!.displayName,
+                            it
+                        )
+                    }
+                }
+
+                event
+                    .deferReply(InteractionCallbackSpec.builder().ephemeral(true).build())
+                    .awaitSafe()
+                event.editReplyCompat {
+                    addEmbedCompat {
+                        description("Please select the swaps you would like.")
+                    }
+                    addAllComponents(listOf(
+                        ActionRow.of(
+                            SelectPickSwap(
+                            matchId,
+                            teamOne,
+                            false,
+                        ).component()),
+                        ActionRow.of(
+                            SelectPickSwap(
+                            matchId,
+                            teamTwo,
+                            true,
+                        ).component()),
+                        ActionRow.of(ButtonSuggestSwap(matchId, true).component()),
+                    ))
+                }.awaitSafe()
+            }
+            else if (swap != null) {
+                event
+                    .deferReply(InteractionCallbackSpec.builder().ephemeral(true).build())
+                    .awaitSafe()
+                event.editReplyCompat {
+                    addEmbedCompat {
+                        description("Please wait for your other request to finish before making another")
+                    }
+                }.awaitSafe()
+            }
+            else {
+                event.deferEdit().awaitSafe()
+            }
+        }
+        else {
+            swap = swap!!
+
+            if (swap.teamTwo == null || swap.teamOne == null) {
+                return
+            }
+
+            event.deferEdit().awaitSafe()
+            event.editReplyCompat {
+                addEmbedCompat {
+                    description("You can dismiss this message")
+                }
+
+                addAllComponents(emptyList())
+            }.awaitSafe()
+
+            swap.state = SwapState.VOTING
+
+            swap.endTime = Instant.now().plusSeconds(Config.bot.vote_time.toLong())
+
+            swap.message = channel.createMessageCompat {
+                content(getPlayers(request).joinToString(" ") { "<@$it>" })
+
+                addComponent(ActionRow.of(ButtonUpvote(matchId, suggester).component(), ButtonDownvote(matchId, suggester).component()))
+            }.awaitSingle()
+
+            updateSwapRequest(request, suggester)
+
+            CoroutineScope(Dispatchers.Default).launch {
+                delay(Config.bot.vote_time.seconds)
+                if (swap.upVotes.count() > swap.downVotes.count()) {
+                    swap.message!!.editCompat {
+                        addEmbedCompat {
+                            title("Swap Succsess")
+                            description("<@${suggester.asLong()}> requested a swap, <@${swap.teamOne!!.asLong()}> for <@${swap.teamTwo!!.asLong()}>")
+                        }
+                    }.awaitSingle()
+
+                    val teamOne = request.teams!!.first.toMutableList()
+                    val teamTwo = request.teams!!.second.toMutableList()
+
+                    teamOne.remove(swap.teamOne!!.asLong())
+                    teamOne.add(swap.teamTwo!!.asLong())
+
+                    teamTwo.add(swap.teamOne!!.asLong())
+                    teamTwo.remove(swap.teamTwo!!.asLong())
+
+                    request.teams = Pair(teamOne, teamTwo)
+
+                    updateMatchReadyMessage(matchId)
+                }
+                else {
+                    swap.message!!.editCompat {
+                        addEmbedCompat {
+                            title("Swap Failed")
+                            description("<@${suggester.asLong()}> requested a swap, <@${swap.teamOne!!.asLong()}> for <@${swap.teamTwo!!.asLong()}>")
+                        }
+                    }.awaitSingle()
+
+                    swap.message!!.deleteAfter(1.minutes)
+                }
+                request.swaps.remove(suggester)
+            }
+        }
+    }
+
+    private suspend fun handleInteraction(event: ComponentInteractionEvent, button: ButtonUpvote) {
+        val request = matchReuests[button.matchId] ?: return
+        val voter = event.interaction.user.id.asLong()
+
+        if (getPlayers(request).contains(voter)) {
+            val swap = request.swaps[button.suggester] ?: return
+
+            swap.upVotes.add(voter)
+            swap.downVotes.remove(voter)
+
+            updateSwapRequest(request, button.suggester)
+        }
+        event.deferEdit().awaitSafe()
+    }
+
+    private suspend fun handleInteraction(event: ComponentInteractionEvent, button: ButtonDownvote) {
+        val request = matchReuests[button.matchId] ?: return
+        val voter = event.interaction.user.id.asLong()
+
+        if (getPlayers(request).contains(voter)) {
+            val swap = request.swaps[button.suggester] ?: return
+
+            swap.upVotes.remove(voter)
+            swap.downVotes.add(voter)
+
+            updateSwapRequest(request, button.suggester)
+        }
+        event.deferEdit().awaitSafe()
+    }
+
     private suspend fun handleInteraction(event: ComponentInteractionEvent, button: ButtonRequestFill) {
         val matchId = button.matchId;
         val dropper = event.interaction.user.id
@@ -923,6 +1135,10 @@ class QueueMessageService : AutostartService, KoinComponent {
         SelectMatchSetupServer.parse(event.customId)?.also { handleInteraction(event, it); return }
         SelectMatchSetupCreatures.parse(event.customId)?.also { handleInteraction(event, it); return }
         ButtonMatchStartServer.parse(event.customId)?.also { handleInteraction(event, it); return }
+        ButtonSuggestSwap.parse(event.customId)?.also { handleInteraction(event, it); return }
+        ButtonUpvote.parse(event.customId)?.also { handleInteraction(event, it); return }
+        ButtonDownvote.parse(event.customId)?.also { handleInteraction(event, it); return }
+        SelectPickSwap.parse(event.customId)?.also { handleInteraction(event, it); return }
     }
 
     private suspend fun notifyPlayer(player: Snowflake, channel: Snowflake) {
