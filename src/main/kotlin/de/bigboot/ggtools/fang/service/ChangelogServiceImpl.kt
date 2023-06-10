@@ -86,7 +86,9 @@ private val CHANGELOG = listOf(
     ),
     listOf(
         "Added raking system",
-        "Added matchmaking"
+        "Added matchmaking",
+        "Add a request a drop button",
+        "Can make a swap through the bot"
     )
 )
 
