@@ -340,6 +340,12 @@ class QueueMessageService : AutostartService, KoinComponent {
         updateMatchReadyMessage(matchId)
 
         request.message.deleteAfter(90.minutes) {
+            for ((_, drop) in request.drops) {
+                if (drop.message != null) {
+                    drop.message!!.delete().await()
+                }
+            }
+
             for (player in getPlayers(request)) {
                 matchService.leave(request.queue, player, true)
             }
@@ -396,6 +402,12 @@ class QueueMessageService : AutostartService, KoinComponent {
         }.awaitSingle()
 
         request.message.deleteAfter(60.seconds)
+
+        for ((_, drop) in request.drops) {
+            if (drop.message != null) {
+                drop.message!!.delete().await()
+            }
+        }
 
         updateQueueMessage(request.queue)
     }
