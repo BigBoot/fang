@@ -55,7 +55,7 @@ enum class SwapState {
 data class FillRequest(
     val matchRequest: UUID,
     var message: Message? = null,
-    var state: DropState = DropState.DONE,
+    var state: DropState = DropState.WAITING,
     var filler: Snowflake? = null,
 )
 
@@ -545,7 +545,6 @@ class QueueMessageService : AutostartService, KoinComponent {
         if (fill.state == DropState.DONE || (fill.state == DropState.WAITING_PLAYER && !timeout)) {
             return
         }
-
         var message = fill.message;
 
         if(matchService.getNumPlayers(request.queue, request.pop.server) >= 1) {
