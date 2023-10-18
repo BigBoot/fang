@@ -137,7 +137,7 @@ class QueueMessageService : AutostartService, KoinComponent {
                 )
             }
 
-            addComponent(ActionRow.of(Maps.FINISHED.map { ButtonMapVote(matchId, it.id).component() }))
+            addComponent(ActionRow.of(SelectVoteMap(matchId).component()))
         }.awaitSafe()
     }
 
@@ -571,13 +571,13 @@ class QueueMessageService : AutostartService, KoinComponent {
         }
     }
 
-    private suspend fun handleInteraction(event: ComponentInteractionEvent, button: ButtonMapVote) {
+    private suspend fun handleInteraction(event: ComponentInteractionEvent, select: SelectVoteMap) {
         event.deferEdit().awaitSafe()
 
-        val request = matchReuests[button.matchId] ?: return
+        val request = matchReuests[select.matchId] ?: return
         if(request.pop.allPlayers.contains(event.interaction.user.id.asLong())) {
-            request.mapVotes += Pair(event.interaction.user.id.asLong(), button.map)
-            updateMapVoteMessage(button.matchId)
+            request.mapVotes += Pair(event.interaction.user.id.asLong(), (event as SelectMenuInteractionEvent).values.first())
+            updateMapVoteMessage(select.matchId)
         }
     }
 
@@ -743,7 +743,7 @@ class QueueMessageService : AutostartService, KoinComponent {
         SelectServerPreference.parse(event.customId)?.also { handleInteraction(event, it); return }
         ButtonAccept.parse(event.customId)?.also { handleInteraction(event, it); return }
         ButtonDecline.parse(event.customId)?.also { handleInteraction(event, it); return }
-        ButtonMapVote.parse(event.customId)?.also { handleInteraction(event, it); return }
+        SelectVoteMap.parse(event.customId)?.also { handleInteraction(event, it); return }
         ButtonMatchDrop.parse(event.customId)?.also { handleInteraction(event, it); return }
         ButtonMatchFinished.parse(event.customId)?.also { handleInteraction(event, it); return }
         ButtonMatchToken.parse(event.customId)?.also { handleInteraction(event, it); return }
