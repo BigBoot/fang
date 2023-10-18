@@ -45,6 +45,8 @@ class CommandsService : AutostartService, KoinComponent {
         }
 
         if (command == null) {
+            if(msg.content.endsWith(Config.bot.prefix)) return
+
             msg.channel.awaitSingle().createEmbedCompat {
                 description("Unknown command: $text")
             }.awaitSingle()

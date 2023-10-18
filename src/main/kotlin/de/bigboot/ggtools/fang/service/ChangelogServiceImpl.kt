@@ -92,6 +92,11 @@ private val CHANGELOG = listOf(
     ),
     listOf(
         "Add ability to yank server setup from other players",
+    ),
+    listOf(
+        "Assume messages ending with the command prefix aren't commands and print no invalid command message",
+        "Remove matchmaking again",
+        "Add support for new maps",
     )
 )
 

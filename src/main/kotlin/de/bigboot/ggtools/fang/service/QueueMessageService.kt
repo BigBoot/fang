@@ -65,7 +65,7 @@ data class MatchRequest(
         .toList()
         .map { Pair(it.first, it.second.size) }
         .maxWithOrNull(compareBy<Pair<String, Int>> { it.second }.thenByDescending { it.first })
-        ?.first ?: Maps.CANYON.id
+        ?.first ?: Maps.LV_CANYON.id
 }
 
 class QueueMessageService : AutostartService, KoinComponent {
@@ -153,11 +153,6 @@ class QueueMessageService : AutostartService, KoinComponent {
             addEmbedCompat {
                 val components = mutableListOf(ButtonMatchFinished(matchId), ButtonMatchDrop(matchId))
 
-                if(request.openUrl != null && request.match != null)
-                {
-                    components.add(ButtonMatchToken(matchId))
-                }
-
                 title("Match ready!")
                 description("""
                     |Everybody get ready, you've got a match.
@@ -175,23 +170,12 @@ class QueueMessageService : AutostartService, KoinComponent {
 
                 addField("Map", Maps.fromId(request.getMapVoteResult())!!.name, true)
 
-                when(val match = request.match) {
-                    is MatchResponse -> {
-                        addField("Team Differential", String.format("%.1f%%", (match.team1.averageSkill/match.team2.averageSkill)*100-100), true)
-                    }
-                }
-
                 if(request.serverSetupPlayer != null) {
                     if (request.openUrl == null) {
                         components.add(ButtonMatchTakeoverServer(matchId))
                     }
                     val value = when {
-                        request.openUrl != null -> if (request.match != null) {
-                            "`open ${request.openUrl}?team=0`\n`open ${request.openUrl}?team=1`\nby <@${request.serverSetupPlayer!!.asLong()}>"
-                        } else {
-                            "`open ${request.openUrl}`\nby <@${request.serverSetupPlayer!!.asLong()}>"
-                        }
-
+                        request.openUrl != null ->  "`open ${request.openUrl}`\nby <@${request.serverSetupPlayer!!.asLong()}>"
                         else -> "Being set up by <@${request.serverSetupPlayer!!.asLong()}>"
                     }
                     addField("Server", value, false)
@@ -199,16 +183,7 @@ class QueueMessageService : AutostartService, KoinComponent {
                     components.add(ButtonMatchSetupServer(matchId))
                 }
 
-                when(val match = request.match)
-                {
-                    is MatchResponse -> {
-                        addField("Suggested Team 0", match.team1.players.joinToString(" ") { "<@${it}>" }, false)
-                        addField("Suggested Team 1", match.team2.players.joinToString(" ") { "<@${it}>" }, false)
-                    }
-                    else -> {
-                        addField("Players", request.pop.allPlayers.joinToString(" ") { "<@$it>" }, false)
-                    }
-                }
+                addField("Players", request.pop.allPlayers.joinToString(" ") { "<@$it>" }, false)
                 
                 if(request.timeToJoin != null) {
                     addField("Time to join", when {
@@ -407,14 +382,9 @@ class QueueMessageService : AutostartService, KoinComponent {
         embed.description(when (numPlayers) {
             0L -> "No players in queue ${Config.emojis.queue_empty}."
             else -> matchService.getPlayers(queue).sortedBy { it.joined }
-                    .map { Pair(it, emuService.getUser(it.snowflake)) }
-                    .joinToString("\n") { (player, emuUser) ->
+                    .joinToString("\n") { player ->
                         val joined = Instant.ofEpochMilli(player.joined).epochSecond
                         val preferences = preferencesService.getPreferences(player.snowflake)
-                        val linked = when (emuUser) {
-                            null -> ""
-                            else -> Config.emojis.account_linked
-                        }
                         val preferredServers = preferences.preferredServers
                             .sortedDescending()
                             .mapNotNull {
@@ -425,7 +395,7 @@ class QueueMessageService : AutostartService, KoinComponent {
                                 }
                             }.joinToString("")
 
-                        "<@${player.snowflake}> $linked $preferredServers (In queue since <t:${joined}:R>)"
+                        "<@${player.snowflake}> $preferredServers (In queue since <t:${joined}:R>)"
             }
         })
     }
@@ -719,17 +689,15 @@ class QueueMessageService : AutostartService, KoinComponent {
         }
 
         val api = serverService.getClient(server) ?: return
-        val reportUrl = request.match?.reportToken?.let { emuService.getReportUrl(it) }
 
         val start = try {
             api.start(
                 StartRequest(
-                    map = "lv_${request.getMapVoteResult()}",
+                    map = request.getMapVoteResult(),
                     maxPlayers = request.pop.allPlayers.size,
                     creature0 = request.creatures.first,
                     creature1 = request.creatures.second,
-                    creature2 = request.creatures.third,
-                    reportUrl = reportUrl,
+                    creature2 = request.creatures.third
                 )
             )
         } catch (ex: Exception) {

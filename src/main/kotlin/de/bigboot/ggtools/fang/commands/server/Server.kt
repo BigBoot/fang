@@ -6,6 +6,7 @@ import de.bigboot.ggtools.fang.api.agent.model.AdminPWRequest
 import de.bigboot.ggtools.fang.api.agent.model.KillRequest
 import de.bigboot.ggtools.fang.api.agent.model.StartRequest
 import de.bigboot.ggtools.fang.service.ServerService
+import de.bigboot.ggtools.fang.utils.Maps
 import de.bigboot.ggtools.fang.utils.createEmbedCompat
 import de.bigboot.ggtools.fang.utils.createMessageCompat
 import de.bigboot.ggtools.fang.utils.orNull
@@ -39,7 +40,7 @@ class Server : CommandGroupSpec("server", "Commands for controlling servers") {
 
             onCall {
                 val server = args["server"]
-                val map = args.optional("map") ?: "lv_canyon"
+                val map = args.optional("map") ?: Maps.LV_CANYON.id
                 val maxPlayers = args.optional("max_players")?.toIntOrNull()
                 val creature1 = args.optional("creature1")
                 val creature2 = args.optional("creature2")
