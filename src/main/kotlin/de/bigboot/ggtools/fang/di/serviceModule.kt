@@ -18,4 +18,5 @@ val serviceModule = module {
     single { QueueMessageService() } bind AutostartService::class
     single { StatusUpdateService() } bind AutostartService::class
     single { MistforgeService() } bind AutostartService::class
+    single { M202VerifyServiceImpl() } bind AutostartService::class
 }

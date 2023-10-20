@@ -8,6 +8,12 @@ import org.tomlj.Toml
 import java.nio.file.Paths
 
 @JsonClass(generateAdapter = true)
+data class M202Config(
+    val arc_pw: String? = null,
+    val role: String? = "M202",
+)
+
+@JsonClass(generateAdapter = true)
 data class EmojisConfig(
     val accept: String = "\uD83D\uDC4D",
     val deny: String = "\uD83D\uDC4E",
@@ -76,6 +82,7 @@ data class RootConfig(
     val emojis: EmojisConfig = EmojisConfig(),
     val permissions: PermissionConfig = PermissionConfig(),
     val emu: EmuConfig = EmuConfig(),
+    val m202: M202Config = M202Config(),
 )
 
 private val moshi = Moshi.Builder().build()
