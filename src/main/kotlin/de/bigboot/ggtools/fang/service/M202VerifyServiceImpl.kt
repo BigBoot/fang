@@ -104,7 +104,14 @@ class M202VerifyServiceImpl : AutostartService, KoinComponent {
             extractFileFromEncryptedZip(body.byteStream(), Config.m202.arc_pw, "ArcZone.xml")?.let {
                 getUserTokens(it, "m202")
             }
-        } ?: return
+        }?.toList() ?: return
+
+        if (tokens.isEmpty()) {
+            channel.createMessageCompat {
+                content("No token found.")
+            }.awaitSafe()
+            return
+        }
 
         val valid = tokens.any { verifyToken(it) }
 
