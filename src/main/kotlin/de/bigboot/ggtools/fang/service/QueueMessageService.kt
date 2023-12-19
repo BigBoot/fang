@@ -58,6 +58,7 @@ data class MatchRequest(
     var state: MatchState = MatchState.QUEUE_POP,
     var timeToJoin: Instant? = null,
     var match: MatchResponse? = null,
+    var lastYank: Instant = Instant.MIN,
 ) {
     fun getMapVoteResult() = mapVotes
         .values
@@ -664,7 +665,23 @@ class QueueMessageService : AutostartService, KoinComponent {
         }
 
         val previousPlayer = request.serverSetupPlayer
+
+        if (previousPlayer == event.interaction.user.id) {
+            event.deferEdit().awaitSafe()
+            return
+        }
+
+        if (request.lastYank.plusSeconds(30) > Instant.now()) {
+            event.replyCompat {
+                ephemeral(true)
+                addFile("slow-down.gif", this::class.java.getResourceAsStream("/slow-down.gif")!!)
+                content("Try again <t:${request.lastYank.plusSeconds(30).epochSecond}:R>")
+            }.awaitSafe()
+            return
+        }
+
         request.serverSetupPlayer = event.interaction.user.id
+        request.lastYank = Instant.now()
 
         event
             .deferReply(InteractionCallbackSpec.builder().ephemeral(true).build())

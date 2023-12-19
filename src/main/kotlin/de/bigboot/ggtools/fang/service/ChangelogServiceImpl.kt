@@ -101,6 +101,9 @@ private val CHANGELOG = listOf(
     listOf(
         "Fix MapVote",
     ),
+    listOf(
+        "Add setup yanking cooldown",
+    ),
 )
 
 class ChangelogServiceImpl : KoinComponent, ChangelogService {
