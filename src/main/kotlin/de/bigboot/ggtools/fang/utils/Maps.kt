@@ -6,16 +6,16 @@ object Maps {
     val LV_CANYON = Map("lv_canyon",        "[Clash] Ghost Reef")
     val LV_MISTFORGE = Map("lv_mistforge",     "[Clash] Sanctum Falls")
     val LV_VALLEY = Map("lv_valley",        "[Clash] Sirens Strand")
-    val LV_WIZARDWOODS = Map("lv_wizardwoods",   "[Clash] Ember Grove", false)
-    val LV_SKYCITYV2 = Map("lv_skycityv2",     "[Clash] Sky City V2", false)
-    val LV_MODCITY = Map("lv_modcity",       "[Clash] Sky Tuga", false)
+    val LV_WIZARDWOODS = Map("lv_wizardwoods",   "[Clash] Ember Grove", true)
+    val LV_SKYCITYV2 = Map("lv_skycityv2",     "[Clash] Sky City V2", true)
+    val LV_MODCITY = Map("lv_modcity",       "[Clash] Sky Tuga", true)
 
-    val RS_CANYON2 = Map("rs_canyon2",        "[Rush] Ghost Reef", false)
-    val RS_MISTFORGE2 = Map("rs_mistforge2",     "[Rush] Sanctum Falls", false)
-    val RS_VALLEY3 = Map("rs_valley3",        "[Rush] Sirens Strand", false)
-    val RS_WIZARDWOODS2 = Map("rs_wizardwoods2",   "[Rush] Ember Grove", false)
-    val RS_SKYCITY1 = Map("rs_skycity1",       "[Rush] Sky City", false)
-    val RS_MODCITY1 = Map("rs_modcity1",       "[Rush] Mod City", false)
+    val RS_CANYON2 = Map("rs_canyon2",        "[Rush] Ghost Reef", true)
+    val RS_MISTFORGE2 = Map("rs_mistforge2",     "[Rush] Sanctum Falls", true)
+    val RS_VALLEY3 = Map("rs_valley3",        "[Rush] Sirens Strand", true)
+    val RS_WIZARDWOODS2 = Map("rs_wizardwoods2",   "[Rush] Ember Grove", true)
+    val RS_SKYCITY1 = Map("rs_skycity1",       "[Rush] Sky City", true)
+    val RS_MODCITY1 = Map("rs_modcity1",       "[Rush] Mod City", true)
 
     val ALL = listOf(
         LV_CANYON,
