@@ -1,5 +1,8 @@
 package de.bigboot.ggtools.fang.utils
 
+import de.bigboot.ggtools.fang.Config
+import de.bigboot.ggtools.fang.RootConfig
+
 data class Map(val id: String, val name: String, val prototype: Boolean = false)
 
 object Maps {
@@ -32,6 +35,7 @@ object Maps {
         RS_MODCITY1,
     )
     val FINISHED = ALL.filter { !it.prototype }
+    val ENABLED = Config.enable_prototype_maps.let { if (it) ALL else FINISHED }
 
     fun fromId(id: String) = ALL.find { it.id == id }
 }

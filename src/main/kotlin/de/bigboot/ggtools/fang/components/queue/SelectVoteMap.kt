@@ -11,7 +11,7 @@ class SelectVoteMap(val matchId: UUID):
     override fun id() = "$PREFIX:${matchId}"
     override fun component(): ActionComponent = SelectMenu.of(
         id(),
-        Maps.FINISHED.map { SelectMenu.Option.of(it.name, it.id) }
+        Maps.ENABLED.map { SelectMenu.Option.of(it.name, it.id) }
     ).withPlaceholder("Select map")
 
     companion object {

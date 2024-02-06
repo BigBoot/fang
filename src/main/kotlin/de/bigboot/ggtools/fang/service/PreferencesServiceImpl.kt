@@ -1,5 +1,6 @@
 package de.bigboot.ggtools.fang.service
 
+import de.bigboot.ggtools.fang.Config
 import de.bigboot.ggtools.fang.db.Preference
 import de.bigboot.ggtools.fang.db.Preferences
 import org.jetbrains.exposed.sql.Database
@@ -9,6 +10,8 @@ import org.koin.core.component.inject
 
 class PreferencesServiceImpl : PreferencesService, KoinComponent {
     private val database by inject<Database>()
+    private val matchService by inject<MatchService>()
+
     override fun getPreferences(snowflake: Long) = transaction(database) {
         Preference.find { (Preferences.snowflake eq snowflake) }
             .firstOrNull()
@@ -34,7 +37,15 @@ class PreferencesServiceImpl : PreferencesService, KoinComponent {
             }
 
             preferences.dmNotifications?.also { entry.directMessage = it }
-            preferences.preferredServers?.also { entry.preferredServers = it.joinToString(",") }
+            preferences.preferredServers?.also {
+                val preferredServers = it.joinToString(",")
+                if(entry.preferredServers != preferredServers) {
+                    entry.preferredServers = preferredServers
+                    for (queue in Config.bot.queues) {
+                        matchService.resetQueuePosition(queue.name, snowflake)
+                    }
+                }
+            }
         }
     }
 

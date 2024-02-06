@@ -104,6 +104,9 @@ private val CHANGELOG = listOf(
     listOf(
         "Add setup yanking cooldown",
     ),
+    listOf(
+        "Reset queue position when updating server preferences",
+    ),
 )
 
 class ChangelogServiceImpl : KoinComponent, ChangelogService {

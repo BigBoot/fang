@@ -126,7 +126,7 @@ class QueueMessageService : AutostartService, KoinComponent {
             addEmbedCompat {
                 title("Map vote")
 
-                for (map in Maps.FINISHED) {
+                for (map in Maps.ENABLED) {
                     val count = request.mapVotes.filter { it.value == map.id }.count()
                     addField(map.name, count.toString(), true)
                 }

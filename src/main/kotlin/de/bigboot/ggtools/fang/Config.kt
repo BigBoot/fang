@@ -83,6 +83,7 @@ data class RootConfig(
     val permissions: PermissionConfig = PermissionConfig(),
     val emu: EmuConfig = EmuConfig(),
     val m202: M202Config = M202Config(),
+    val enable_prototype_maps: Boolean = false,
 )
 
 private val moshi = Moshi.Builder().build()
