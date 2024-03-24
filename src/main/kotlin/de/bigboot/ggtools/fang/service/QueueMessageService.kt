@@ -416,6 +416,15 @@ class QueueMessageService : AutostartService, KoinComponent {
         ))
     }
 
+    fun findUser(user: Long): MatchRequest? {
+        matchReuests.forEach { (_, request) ->
+            if (request.pop.allPlayers.contains(user)) {
+                return request;
+            }
+        }
+        return null;
+    }
+
     private suspend fun handleInteraction(event: ComponentInteractionEvent, button: ButtonJoin) {
         event.deferEdit().awaitSafe()
         matchService.join(button.queue, event.interaction.user.id.asLong())

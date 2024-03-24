@@ -2,6 +2,7 @@ package de.bigboot.ggtools.fang
 
 import discord4j.core.`object`.entity.Guild
 import discord4j.core.`object`.entity.Message
+import discord4j.core.`object`.entity.User
 import discord4j.core.`object`.entity.channel.MessageChannel
 import kotlinx.coroutines.reactive.awaitSingle
 import org.koin.core.component.KoinComponent
@@ -16,6 +17,7 @@ data class CommandContext(
 
     suspend fun channel(): MessageChannel = message.channel.awaitSingle()
     suspend fun guild(): Guild = message.guild.awaitSingle()
+    suspend fun author(): User = message.authorAsMember.awaitSingle()
 
     class Arguments(private val arguments: Map<String, String>) {
         operator fun get(key: String) = arguments.getValue(key)
