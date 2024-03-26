@@ -3,6 +3,7 @@ package de.bigboot.ggtools.fang.commands
 import de.bigboot.ggtools.fang.CommandGroupBuilder
 import de.bigboot.ggtools.fang.CommandGroupSpec
 import de.bigboot.ggtools.fang.commands.admin.Admin
+import de.bigboot.ggtools.fang.commands.giveway.Giveaway
 import de.bigboot.ggtools.fang.commands.queue.Queue
 import de.bigboot.ggtools.fang.commands.server.Server
 import de.bigboot.ggtools.fang.utils.createEmbedCompat
@@ -15,6 +16,7 @@ class Root : CommandGroupSpec("", "") {
         group(Admin())
         group(Queue())
         group(Server())
+        group(Giveaway())
 
         command("help", "show this help") {
             onCall {

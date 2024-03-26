@@ -7,7 +7,7 @@ private val emojiRegex = Regex("""<(a?):(\w+):(\d+)>""")
 fun String.asReaction(): ReactionEmoji = emojiRegex.find(this)?.let {
     val (animated, name, id) = it.destructured
     ReactionEmoji.custom(Snowflake.of(id), name, animated.isNotBlank())
-} ?: ReactionEmoji.unicode(this)
+} ?: ReactionEmoji.unicode(this.codePointAt(0).let(Character::toString))
 
 fun Int.asReaction(): ReactionEmoji = ReactionEmoji.unicode(when (this) {
     0 -> "0️⃣"

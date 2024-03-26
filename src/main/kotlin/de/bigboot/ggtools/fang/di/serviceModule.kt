@@ -14,6 +14,7 @@ val serviceModule = module {
     single { PreferencesServiceImpl() } bind PreferencesService::class
 
     single { SetupGuildServiceImpl() } binds arrayOf(AutostartService::class, SetupGuildService::class)
+    single { GivewayServiceImpl() } binds arrayOf(AutostartService::class, GivewayService::class)
     single { CommandsService() } bind AutostartService::class
     single { QueueMessageService() } bind AutostartService::class
     single { StatusUpdateService() } bind AutostartService::class

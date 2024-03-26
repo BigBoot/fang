@@ -107,6 +107,9 @@ private val CHANGELOG = listOf(
     listOf(
         "Reset queue position when updating server preferences",
     ),
+    listOf(
+        "Add first draft of giveaway system",
+    ),
 )
 
 class ChangelogServiceImpl : KoinComponent, ChangelogService {

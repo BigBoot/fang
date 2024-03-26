@@ -4,7 +4,6 @@ import de.bigboot.ggtools.fang.Config
 import de.bigboot.ggtools.fang.api.agent.model.StartRequest
 import de.bigboot.ggtools.fang.api.agent.model.StartResponse
 import de.bigboot.ggtools.fang.api.emu.model.MatchResponse
-import de.bigboot.ggtools.fang.components.queue.QueueComponentSpec
 import de.bigboot.ggtools.fang.components.queue.*
 import de.bigboot.ggtools.fang.utils.*
 import discord4j.common.util.Snowflake
@@ -721,7 +720,7 @@ class QueueMessageService : AutostartService, KoinComponent {
 
     private suspend fun handleInteraction(event: ComponentInteractionEvent, button: ButtonMatchStartServer) {
         val request = matchReuests[button.matchId] ?: return
-        if(request.serverSetupPlayer != event.interaction.user.id) return;
+        if(request.serverSetupPlayer != event.interaction.user.id) return
 
         val server = request.server
 
