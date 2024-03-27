@@ -2,12 +2,16 @@ package de.bigboot.ggtools.fang.utils
 
 import discord4j.common.util.Snowflake
 import discord4j.core.`object`.reaction.ReactionEmoji
+import net.fellbaum.jemoji.EmojiManager
 
 private val emojiRegex = Regex("""<(a?):(\w+):(\d+)>""")
-fun String.asReaction(): ReactionEmoji = emojiRegex.find(this)?.let {
+
+fun String.asReactionOrNull(): ReactionEmoji? = emojiRegex.find(this)?.let {
     val (animated, name, id) = it.destructured
     ReactionEmoji.custom(Snowflake.of(id), name, animated.isNotBlank())
-} ?: ReactionEmoji.unicode(this.codePointAt(0).let(Character::toString))
+} ?: EmojiManager.extractEmojisInOrder(this).firstOrNull()?.let { ReactionEmoji.unicode(it.unicode) }
+
+fun String.asReaction(): ReactionEmoji = asReactionOrNull() ?: ReactionEmoji.unicode("")
 
 fun Int.asReaction(): ReactionEmoji = ReactionEmoji.unicode(when (this) {
     0 -> "0️⃣"

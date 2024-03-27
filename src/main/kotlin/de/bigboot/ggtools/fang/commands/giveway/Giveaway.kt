@@ -10,6 +10,7 @@ import discord4j.common.util.TimestampFormat
 import discord4j.core.GatewayDiscordClient
 import discord4j.core.event.domain.message.MessageCreateEvent
 import discord4j.core.`object`.reaction.ReactionEmoji
+import discord4j.rest.http.client.ClientException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -74,7 +75,7 @@ class Giveaway : CommandGroupSpec("giveaway", "Commands for managing giveaways")
                         val next = ev.message
                         var content: String? = next.content
 
-                        if (content == "cancel") {
+                        if (content?.lowercase() == "cancel") {
                             channel().createMessageCompat {
                                 content("Ok, I cancelled the giveaway!")
                             }.awaitSingle()
@@ -165,7 +166,22 @@ class Giveaway : CommandGroupSpec("giveaway", "Commands for managing giveaways")
                                 content("Okay, here is a preview of the giveaway, please `confirm` or `cancel` and try again")
                             }.awaitSingle()
 
-                            giveawayService.createGiveawayMessage(channel(), title!!, description!!, end!!, prizes, prizes.map { (Math.random()*100).toInt() })
+                            try {
+                                giveawayService.createGiveawayMessage(
+                                    channel(),
+                                    title!!,
+                                    description!!,
+                                    end!!,
+                                    prizes,
+                                    prizes.map { (Math.random()*100).toInt() },
+                                )
+                            } catch (ex: ClientException) {
+                                channel().createMessageCompat {
+                                    content("Sorry I was unable to create this giveaway: ${ex.errorResponse.orNull()?.fields}")
+                                }.awaitSingle()
+
+                                return@takeWhile false
+                            }
 
                             return@takeWhile true
                         }
@@ -190,11 +206,19 @@ class Giveaway : CommandGroupSpec("giveaway", "Commands for managing giveaways")
                             }
 
                             if (prizeEmoji == null) {
-                                prizeEmoji = content.trim().asReaction()
+                                prizeEmoji = content.trim().asReactionOrNull()
 
-                                channel().createMessageCompat {
-                                    content("Great, the emoji will be ${prizeEmoji!!.print()}. And lastly, how many of these prizes are there?")
-                                }.awaitSingle()
+                                if (prizeEmoji != null) {
+                                    channel().createMessageCompat {
+                                        content("Great, the emoji will be ${prizeEmoji!!.print()}. And lastly, how many of these prizes are there?")
+                                    }.awaitSingle()
+                                }
+                                else
+                                {
+                                    channel().createMessageCompat {
+                                        content("Sorry this doesn't look like a valid emoji to me, please try again...")
+                                    }.awaitSingle()
+                                }
 
                                 return@takeWhile true
                             }
@@ -285,7 +309,7 @@ class Giveaway : CommandGroupSpec("giveaway", "Commands for managing giveaways")
                         val next = ev.message
                         val content: String? = next.content
 
-                        if (content == "cancel") {
+                        if (content?.lowercase() == "cancel") {
                             channel().createMessageCompat {
                                 content("Ok, I cancelled the reroll!")
                             }.awaitSingle()
@@ -326,7 +350,7 @@ class Giveaway : CommandGroupSpec("giveaway", "Commands for managing giveaways")
                             }
                         }
 
-                        if (content == "confirm") {
+                        if (content?.lowercase() == "confirm") {
                             giveawayService.rerollPrizes(giveawayId, prizes.map { Pair(it.prize.id, it.count!!) })
 
                             return@takeWhile false

@@ -161,7 +161,7 @@ class GivewayServiceImpl : GivewayService, AutostartService, KoinComponent {
                     it.emoji,
                 ).component()
             }))
-        }.awaitSingle()!!
+        }.awaitSingle()
     }
 
     override suspend fun rerollPrizes(giveaway: UUID, prizes: List<Pair<UUID, Int>>) {
