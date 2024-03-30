@@ -15,6 +15,7 @@ class Giveaway(id: EntityID<UUID>) : UUIDEntity(id) {
     var title by Giveaways.title
     var description by Giveaways.description
     var end by Giveaways.end
+    var maxJoinDate by Giveaways.maxJoinDate
     var ended by Giveaways.ended
 
     val prizes by Prize referrersOn Prizes.giveaway
@@ -26,5 +27,6 @@ object Giveaways : UUIDTable() {
     val title = text("title")
     val description = text("description")
     val end = timestamp("end")
+    val maxJoinDate = timestamp("max_join_date").nullable()
     val ended = bool("ended").default(false)
 }

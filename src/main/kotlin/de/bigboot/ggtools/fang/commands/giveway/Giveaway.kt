@@ -4,6 +4,7 @@ import de.bigboot.ggtools.fang.CommandContext
 import de.bigboot.ggtools.fang.CommandGroupBuilder
 import de.bigboot.ggtools.fang.CommandGroupSpec
 import de.bigboot.ggtools.fang.service.GivewayService
+import de.bigboot.ggtools.fang.service.GivewayService.ConfirmationStatus.*
 import de.bigboot.ggtools.fang.utils.*
 import discord4j.common.util.Snowflake
 import discord4j.common.util.TimestampFormat
@@ -44,7 +45,6 @@ class Giveaway : CommandGroupSpec("giveaway", "Commands for managing giveaways")
     override val build: CommandGroupBuilder.() -> Unit = {
         command("create", "create a new giveaway") {
             onCall {
-
                 val author = message.author.get()
                 channel().createMessageCompat {
                     content("Sure let's get started, you can cancel the creation any time by answering `cancel`, first tell me which channel the giveaway should be created in.")
@@ -52,15 +52,16 @@ class Giveaway : CommandGroupSpec("giveaway", "Commands for managing giveaways")
 
                 var timeout: Timer? = null
 
-                var channel: Snowflake? = null
-                var title: String? = null
-                var description: String? = null
-                var end: Instant? = null
+                var channel: Optional<Snowflake> = Optional.empty()
+                var title: Optional<String> = Optional.empty()
+                var description: Optional<String> = Optional.empty()
+                var end: Optional<Instant> = Optional.empty()
+                var maxJoinDate: Optional<Optional<Instant>> = Optional.empty()
                 val prizes: MutableList<GivewayService.Prize> = mutableListOf()
 
-                var prizeTitle: String? = null
-                var prizeEmoji: ReactionEmoji? = null
-                var prizeCount: Int? = null
+                var prizeTitle: Optional<String> = Optional.empty()
+                var prizeEmoji: Optional<ReactionEmoji> = Optional.empty()
+                var prizeCount:Optional< Int> = Optional.empty()
 
                 var confirm = false
 
@@ -83,11 +84,11 @@ class Giveaway : CommandGroupSpec("giveaway", "Commands for managing giveaways")
                             return@takeWhile false
                         }
 
-                        if (channel == null)
+                        if (channel.isEmpty)
                         {
-                            channel = guild().findChannel(next.content)?.id
+                            channel = Optional.ofNullable(guild().findChannel(content.orEmpty())?.id)
 
-                            if (channel != null) {
+                            if (channel.isPresent) {
                                 channel().createMessageCompat {
                                     content("Got it, next please tell me the title for the giveaway.")
                                 }.awaitSingle()
@@ -102,9 +103,9 @@ class Giveaway : CommandGroupSpec("giveaway", "Commands for managing giveaways")
                             return@takeWhile true
                         }
 
-                        if (title == null)
+                        if (title.isEmpty)
                         {
-                            title = next.content
+                            title = Optional.ofNullable(content)
 
                             channel().createMessageCompat {
                                 content("Okay, now please tell me the description for the giveaway.")
@@ -113,9 +114,9 @@ class Giveaway : CommandGroupSpec("giveaway", "Commands for managing giveaways")
                             return@takeWhile true
                         }
 
-                        if (description == null)
+                        if (description.isEmpty)
                         {
-                            description = next.content
+                            description = Optional.ofNullable(content)
 
                             channel().createMessageCompat {
                                 content("Done, and when should the giveaway end? ([Unix Epoch Timestamp](https://www.unixtimestamp.com/))")
@@ -124,13 +125,44 @@ class Giveaway : CommandGroupSpec("giveaway", "Commands for managing giveaways")
                             return@takeWhile true
                         }
 
-                        if (end == null) {
-                            end = next.content.toLongOrNull()?.let { Instant.ofEpochSecond(it) }
+                        if (end.isEmpty) {
+                            end = Optional.ofNullable(content?.toLongOrNull()?.let { Instant.ofEpochSecond(it) })
 
-                            if (end != null) {
+                            if (end.isPresent) {
                                 channel().createMessageCompat {
-                                    content("Great, the giveaway will end ${TimestampFormat.RELATIVE_TIME.format(end!!)}.\nNow we just need to add the prizes.")
+                                    content("Great, the giveaway will end ${TimestampFormat.RELATIVE_TIME.format(end.get())}.\nShould participants be required to have joined the server before a specific date? If so enter the timestamp, other answer `no`.")
                                 }.awaitSingle()
+                            }
+                            else
+                            {
+                                channel().createMessageCompat {
+                                    content("Sorry this doesn't look like a timestamp, please try again...")
+                                }.awaitSingle()
+                            }
+
+                            return@takeWhile true
+                        }
+
+                        if (maxJoinDate.isEmpty) {
+                            //
+                            maxJoinDate = Optional.ofNullable(when {
+                                next.content.lowercase() == "no" -> Optional.empty()
+                                else -> content?.toLongOrNull()?.let { Optional.of(Instant.ofEpochSecond(it)) }
+                            })
+
+                            if (maxJoinDate.isPresent) {
+                                if (maxJoinDate.get().isPresent) {
+                                    channel().createMessageCompat {
+                                        content("Ok, participants will be required to have joined the server before ${TimestampFormat.RELATIVE_TIME.format(maxJoinDate.get().get())}.\nNow we just need to add the prizes..")
+                                    }.awaitSingle()
+                                }
+                                else
+                                {
+                                    channel().createMessageCompat {
+                                        content("Ok, participants will not be required to have joined the server before a specific date.\nNow we just need to add the prizes..")
+                                    }.awaitSingle()
+                                }
+
                                 content = null
                             }
                             else
@@ -145,7 +177,14 @@ class Giveaway : CommandGroupSpec("giveaway", "Commands for managing giveaways")
 
                         if (confirm) {
                             if (content == "confirm") {
-                                giveawayService.createGiveaway(channel!!, title!!, description!!, end!!, prizes)
+                                giveawayService.createGiveaway(
+                                    channel.get(),
+                                    title.get(),
+                                    description.get(),
+                                    end.get(),
+                                    maxJoinDate.get().orNull(),
+                                    prizes
+                                )
 
                                 return@takeWhile false
                             }
@@ -169,9 +208,10 @@ class Giveaway : CommandGroupSpec("giveaway", "Commands for managing giveaways")
                             try {
                                 giveawayService.createGiveawayMessage(
                                     channel(),
-                                    title!!,
-                                    description!!,
-                                    end!!,
+                                    title.get(),
+                                    description.get(),
+                                    end.get(),
+                                    maxJoinDate.get().orNull(),
                                     prizes,
                                     prizes.map { (Math.random()*100).toInt() },
                                 )
@@ -195,22 +235,22 @@ class Giveaway : CommandGroupSpec("giveaway", "Commands for managing giveaways")
                                 return@takeWhile true
                             }
 
-                            if (prizeTitle == null) {
-                                prizeTitle = content
+                            if (prizeTitle.isEmpty) {
+                                prizeTitle = Optional.ofNullable(content)
 
                                 channel().createMessageCompat {
-                                    content("Next provide the emoji for the prize `${prizeTitle}`")
+                                    content("Next provide the emoji for the prize `${prizeTitle.get()}`")
                                 }.awaitSingle()
 
                                 return@takeWhile true
                             }
 
-                            if (prizeEmoji == null) {
-                                prizeEmoji = content.trim().asReactionOrNull()
+                            if (prizeEmoji.isEmpty) {
+                                prizeEmoji = Optional.ofNullable(content.trim().asReactionOrNull())
 
-                                if (prizeEmoji != null) {
+                                if (prizeEmoji.isPresent) {
                                     channel().createMessageCompat {
-                                        content("Great, the emoji will be ${prizeEmoji!!.print()}. And lastly, how many of these prizes are there?")
+                                        content("Great, the emoji will be ${prizeEmoji.get().print()}. And lastly, how many of these prizes are there?")
                                     }.awaitSingle()
                                 }
                                 else
@@ -223,14 +263,14 @@ class Giveaway : CommandGroupSpec("giveaway", "Commands for managing giveaways")
                                 return@takeWhile true
                             }
 
-                            if (prizeCount == null) {
-                                prizeCount = content.trim().toIntOrNull()
+                            if (prizeCount.isEmpty) {
+                                prizeCount = Optional.ofNullable(content.trim().toIntOrNull())
 
-                                if (prizeCount != null) {
-                                    prizes.add(GivewayService.Prize(prizeEmoji!!, prizeTitle!!, prizeCount!!))
-                                    prizeTitle = null
-                                    prizeEmoji = null
-                                    prizeCount = null
+                                if (prizeCount.isPresent) {
+                                    prizes.add(GivewayService.Prize(prizeEmoji.get(), prizeTitle.get(), prizeCount.get()))
+                                    prizeTitle = Optional.empty()
+                                    prizeEmoji = Optional.empty()
+                                    prizeCount = Optional.empty()
                                     content = null
                                 }
                                 else
@@ -257,12 +297,11 @@ class Giveaway : CommandGroupSpec("giveaway", "Commands for managing giveaways")
                     .onCompletion { timeout?.cancel() }
                     .launch()
 
-                    timeout = timer(period = TIMEOUT, initialDelay = TIMEOUT) { job?.apply { cancel(this) } }
+                    timeout = timer(period = TIMEOUT, initialDelay = TIMEOUT) { job.apply { cancel(this) } }
             }
         }
 
-
-        command("reroll", "reroll some prizes for a existing giveaway") {
+        command("winners", "Get the list of winners for a giveaway") {
             arg("message_id", "the message id of of the giveaway message")
 
             onCall {
@@ -277,98 +316,26 @@ class Giveaway : CommandGroupSpec("giveaway", "Commands for managing giveaways")
                     return@onCall
                 }
 
-                data class Reroll(val prize: GivewayService.Prize, var count: Int? = null)
-                val prizes = giveawayService
-                        .getPrizesByGiveawayId(giveawayId).map { Reroll(it) }
+                val result = giveawayService.getWinners(giveawayId)
 
-                if (prizes.isEmpty()) {
-                    channel().createEmbedCompat {
-                        description("Sorry, I couldn't find any prizes for this giveaway.")
-                    }.awaitSingle()
-
-                    return@onCall
-                }
-
-                val first = prizes.first()
-
-                val author = message.author.get()
                 channel().createMessageCompat {
-                    content("Sure let's get started, you can cancel the reroll any time by answering `cancel`. How many ${first.prize.emoji.print()} ${first.prize.text} do you want to reroll?")
-                }.awaitSingle()
+                    val sb = StringBuilder("Here's the list of winners:\n")
 
-                var timeout: Timer? = null
-
-                var job: Job? = null
-
-                job = client.eventDispatcher.on<MessageCreateEvent>()
-                    .filter { it.message.channelId == this@onCall.channel().id && it.message.author.get().id == author.id }
-                    .takeWhile { ev ->
-                        timeout?.cancel()
-                        timeout = timer(period = TIMEOUT, initialDelay = TIMEOUT) { job?.apply { cancel(this) } }
-
-                        val next = ev.message
-                        val content: String? = next.content
-
-                        if (content?.lowercase() == "cancel") {
-                            channel().createMessageCompat {
-                                content("Ok, I cancelled the reroll!")
-                            }.awaitSingle()
-
-                            return@takeWhile false
-                        }
-
-                        for (prize in prizes) {
-                            if(prize.count != null) {
-                                continue
+                    for ((prize, winners) in result) {
+                        sb.appendLine("${prize.emoji.print()} ${prize.text}:")
+                        for(winner in winners.sortedBy { arrayOf(Confirmed, Waiting, Missed).indexOf(it.status) }) {
+                            val user = client.getUserById(winner.snowflake).awaitSingle()
+                            val status = when (winner.status) {
+                                Waiting -> "\u23F1"
+                                GivewayService.ConfirmationStatus.Confirmed -> "\u2705"
+                                Missed -> "\uD83D\uDEAB"
                             }
-
-                            prize.count = content?.toIntOrNull()
-
-                            if (prize.count != null) {
-                                val nextPrize = prizes.filter { it.count == null }.firstOrNull()
-                                if (nextPrize == null) {
-                                    channel().createMessageCompat {
-                                        content("All right, let's recap:\n${prizes.joinToString("\n") { "${it.count} x ${it.prize.emoji.print()} ${it.prize.text}" }}\n\nPlease `confirm` or `cancel` and try again")
-                                    }.awaitSingle()
-                                    return@takeWhile true
-                                }
-                                else
-                                {
-                                    channel().createMessageCompat {
-                                        content("Great, and how many ${nextPrize.prize.emoji.print()} ${nextPrize.prize.text} do you want to reroll?.")
-                                    }.awaitSingle()
-                                    return@takeWhile true
-                                }
-                            }
-                            else
-                            {
-                                channel().createMessageCompat {
-                                    content("Sorry this doesn't look like a number, please try again...")
-                                }.awaitSingle()
-
-                                return@takeWhile true
-                            }
+                            sb.appendLine("- $status ${user.username} (${user.mention})")
                         }
 
-                        if (content?.lowercase() == "confirm") {
-                            giveawayService.rerollPrizes(giveawayId, prizes.map { Pair(it.prize.id, it.count!!) })
-
-                            return@takeWhile false
-                        }
-                        else
-                        {
-                            channel().createMessageCompat {
-                                content("Please `confirm` or `cancel` and try again")
-                            }.awaitSingle()
-
-                            return@takeWhile true
-                        }
-
+                        content(sb.toString())
                     }
-                    .onCompletion { timeout?.cancel() }
-                    .launch()
-
-                timeout = timer(period = TIMEOUT, initialDelay = TIMEOUT) { job?.apply { cancel(this) } }
+                }.awaitSafe()
             }
         }
     }
