@@ -53,7 +53,7 @@ dependencies {
     implementation("io.insert-koin:koin-core:3.2.2")
 
     // Discord4J
-    implementation("com.discord4j:discord4j-core:3.2.3")
+    implementation("com.discord4j:discord4j-core:3.2.6")
 
     // Retrofit
     implementation("com.squareup.retrofit2:retrofit:2.9.0")

@@ -2,6 +2,7 @@ package de.bigboot.ggtools.fang.di
 
 import de.bigboot.ggtools.fang.Config
 import discord4j.core.DiscordClient
+import discord4j.core.event.EventDispatcher
 import discord4j.gateway.intent.Intent
 import discord4j.gateway.intent.IntentSet
 import org.koin.dsl.module
@@ -11,6 +12,7 @@ val discordModule = module {
         DiscordClient
             .create(Config.bot.token)
             .gateway()
+            .setEventDispatcher(EventDispatcher.replaying())
             .setEnabledIntents(IntentSet.nonPrivileged().or(IntentSet.of(Intent.GUILD_MEMBERS)))
             .login()
             .block()
